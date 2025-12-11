@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
-import { UserDataField, LanguageVersion } from '../types/database';
+import { UserDataField } from '../types/database';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
+import { translateField, translateAllFields, addTranslationToField } from '../utils/translation';
 import './DataEditor.css';
 
 export const DataEditor = ({ onClose }: { onClose: () => void }) => {
@@ -48,24 +49,59 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const handleAddLanguageVersion = (fieldId: string, language: string, value: string) => {
+  const handleAddLanguageVersion = async (fieldId: string, language: string, value?: string): Promise<void> => {
     const field = fields.find(f => f.id === fieldId);
     if (!field) return;
 
-    const newVersion: LanguageVersion = {
-      language,
-      value,
-      createdAt: new Date().toISOString(),
-    };
+    let translatedValue = value;
 
-    const updatedField = {
-      ...field,
-      languageVersions: [...field.languageVersions, newVersion],
-      updatedAt: new Date().toISOString(),
-    };
+    // Si aucune valeur n'est fournie, traduire automatiquement depuis la langue de base
+    if (!translatedValue) {
+      try {
+        translatedValue = await translateField(field, language);
+      } catch (error: any) {
+        alert(`Erreur lors de la traduction: ${error.message}`);
+        return;
+      }
+    }
 
-    handleSaveField(updatedField);
+    const updatedField = addTranslationToField(field, language, translatedValue);
+    await handleSaveField(updatedField);
     setSelectedField(updatedField);
+  };
+
+  const handleTranslateAllFields = async (targetLang: string) => {
+    if (!user) return;
+
+    try {
+      const translations = await translateAllFields(fields, targetLang);
+      
+      // Mettre à jour tous les champs avec les traductions
+      const updatedFields = fields.map(field => {
+        const translation = translations[field.id];
+        if (translation) {
+          return addTranslationToField(field, targetLang, translation);
+        }
+        return field;
+      });
+
+      setFields(updatedFields);
+      
+      // Sauvegarder tous les champs
+      if (user && setUser) {
+        try {
+          const updatedUser = { ...user, data: updatedFields };
+          const savedUser = await storage.saveUser(updatedUser);
+          setUser(savedUser);
+          alert(`Traductions en ${targetLang} ajoutées avec succès !`);
+        } catch (error) {
+          console.error('Error saving translations:', error);
+          alert('Erreur lors de la sauvegarde des traductions');
+        }
+      }
+    } catch (error: any) {
+      alert(`Erreur lors de la traduction: ${error.message}`);
+    }
   };
 
   const handleExportJSON = () => {
@@ -136,7 +172,45 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               />
             ) : (
               <div className="no-field-selected">
-                Sélectionnez un champ pour l'éditer
+                <p>Sélectionnez un champ pour l'éditer</p>
+                <div className="translate-all-section">
+                  <h4>Traduction automatique</h4>
+                  <p>Traduire tous les champs vers une langue :</p>
+                  <div className="translate-all-controls">
+                    <select
+                      id="target-lang-select"
+                      className="lang-select"
+                      defaultValue=""
+                    >
+                      <option value="">Sélectionner une langue</option>
+                      <option value="en">Anglais (en)</option>
+                      <option value="es">Espagnol (es)</option>
+                      <option value="de">Allemand (de)</option>
+                      <option value="it">Italien (it)</option>
+                      <option value="pt">Portugais (pt)</option>
+                      <option value="nl">Néerlandais (nl)</option>
+                      <option value="pl">Polonais (pl)</option>
+                      <option value="ru">Russe (ru)</option>
+                      <option value="ja">Japonais (ja)</option>
+                      <option value="zh">Chinois (zh)</option>
+                      <option value="ko">Coréen (ko)</option>
+                    </select>
+                    <button
+                      className="translate-all-button"
+                      onClick={() => {
+                        const select = document.getElementById('target-lang-select') as HTMLSelectElement;
+                        const lang = select.value;
+                        if (lang) {
+                          handleTranslateAllFields(lang);
+                        } else {
+                          alert('Veuillez sélectionner une langue');
+                        }
+                      }}
+                    >
+                      Traduire tous les champs
+                    </button>
+                  </div>
+                </div>
               </div>
             )}
           </div>
@@ -153,7 +227,7 @@ const FieldEditor = ({
 }: {
   field: UserDataField;
   onSave: (field: UserDataField) => void;
-  onAddLanguage: (fieldId: string, language: string, value: string) => void;
+  onAddLanguage: (fieldId: string, language: string, value?: string) => Promise<void>;
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
@@ -181,9 +255,9 @@ const FieldEditor = ({
     onSave(updatedField);
   };
 
-  const handleAddLanguage = () => {
-    if (newLanguage && newLanguageValue) {
-      onAddLanguage(field.id, newLanguage, newLanguageValue);
+  const handleAddLanguageClick = async () => {
+    if (newLanguage) {
+      await onAddLanguage(field.id, newLanguage, newLanguageValue || undefined);
       setNewLanguage('');
       setNewLanguageValue('');
     }
@@ -232,20 +306,50 @@ const FieldEditor = ({
             </div>
           ))}
         <div className="add-language-form">
-          <input
-            type="text"
-            placeholder="Code langue (ex: en, es)"
-            value={newLanguage}
-            onChange={(e) => setNewLanguage(e.target.value)}
-          />
+          <div className="language-input-group">
+            <select
+              value={newLanguage}
+              onChange={(e) => setNewLanguage(e.target.value)}
+              className="lang-select"
+            >
+              <option value="">Sélectionner une langue</option>
+              <option value="en">Anglais (en)</option>
+              <option value="es">Espagnol (es)</option>
+              <option value="de">Allemand (de)</option>
+              <option value="it">Italien (it)</option>
+              <option value="pt">Portugais (pt)</option>
+              <option value="nl">Néerlandais (nl)</option>
+              <option value="pl">Polonais (pl)</option>
+              <option value="ru">Russe (ru)</option>
+              <option value="ja">Japonais (ja)</option>
+              <option value="zh">Chinois (zh)</option>
+              <option value="ko">Coréen (ko)</option>
+            </select>
+            <button
+              onClick={async () => {
+                if (newLanguage) {
+                  await onAddLanguage(field.id, newLanguage);
+                  setNewLanguage('');
+                }
+              }}
+              className="translate-auto-button"
+              title="Traduire automatiquement depuis la langue de base"
+            >
+              🔄 Traduire automatiquement
+            </button>
+          </div>
           <textarea
-            placeholder="Valeur traduite"
+            placeholder="Ou saisir manuellement la valeur traduite"
             value={newLanguageValue}
             onChange={(e) => setNewLanguageValue(e.target.value)}
             rows={2}
           />
-          <button onClick={handleAddLanguage} className="add-language-button">
-            Ajouter
+          <button
+            onClick={handleAddLanguageClick}
+            className="add-language-button"
+            disabled={!newLanguage || (!newLanguageValue && !newLanguage)}
+          >
+            Ajouter la traduction
           </button>
         </div>
       </div>

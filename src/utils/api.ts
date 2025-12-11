@@ -96,5 +96,24 @@ export const api = {
     });
     return res.json();
   },
+
+  // Translation
+  async translate(text: string, targetLang: string, sourceLang?: string) {
+    const res = await fetch(`${API_BASE}/translate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text, targetLang, sourceLang }),
+    });
+    return res.json();
+  },
+
+  async translateBatch(texts: string[], targetLang: string, sourceLang?: string) {
+    const res = await fetch(`${API_BASE}/translate-batch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ texts, targetLang, sourceLang }),
+    });
+    return res.json();
+  },
 };
 
