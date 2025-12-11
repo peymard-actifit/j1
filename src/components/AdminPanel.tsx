@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
-import { api } from '../utils/api';
 import './AdminPanel.css';
 
 export const AdminPanel = () => {
