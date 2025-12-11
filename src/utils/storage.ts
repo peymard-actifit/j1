@@ -52,6 +52,15 @@ export const storage = {
     }
   },
 
+  async deleteAllUsers(): Promise<void> {
+    try {
+      await api.deleteAllUsers();
+    } catch (error) {
+      console.error('Error deleting all users:', error);
+      throw error;
+    }
+  },
+
   // Current user session (toujours en localStorage pour la session)
   getCurrentUser: (): User | null => {
     const userId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);

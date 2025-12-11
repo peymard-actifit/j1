@@ -50,6 +50,20 @@ export const api = {
     return res.json();
   },
 
+  async deleteUser(id: string) {
+    const res = await fetch(`${API_BASE}/users?id=${id}`, {
+      method: 'DELETE',
+    });
+    return res.json();
+  },
+
+  async deleteAllUsers() {
+    const res = await fetch(`${API_BASE}/users?deleteAll=true`, {
+      method: 'DELETE',
+    });
+    return res.json();
+  },
+
   // CV Formats
   async getCVFormats(filters?: {
     country?: string;

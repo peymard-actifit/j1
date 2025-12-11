@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { AdminPanel } from './AdminPanel';
 import './Header.css';
 
 interface HeaderProps {
@@ -55,6 +56,10 @@ export const Header = ({ onEditClick }: HeaderProps) => {
           )}
         </div>
       </div>
+
+      {adminMode && (
+        <AdminPanel />
+      )}
 
       {showAdminPrompt && (
         <div className="admin-prompt-overlay">

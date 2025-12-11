@@ -170,6 +170,30 @@ export default async function handler(
       }
       return res.status(200).json(user);
     } catch (error: any) {
+      console.error('PUT users error:', error);
+      return res.status(500).json({ error: error.message });
+    }
+  }
+
+  if (req.method === 'DELETE') {
+    try {
+      const { id, deleteAll } = req.query;
+      
+      if (deleteAll === 'true') {
+        // Supprimer tous les utilisateurs
+        await sql`DELETE FROM users`;
+        return res.status(200).json({ message: 'Tous les utilisateurs ont été supprimés', count: 0 });
+      }
+      
+      if (id) {
+        // Supprimer un utilisateur spécifique
+        await sql`DELETE FROM users WHERE id = ${id as string}`;
+        return res.status(200).json({ message: 'Utilisateur supprimé', id });
+      }
+      
+      return res.status(400).json({ error: 'ID requis ou deleteAll=true' });
+    } catch (error: any) {
+      console.error('DELETE users error:', error);
       return res.status(500).json({ error: error.message });
     }
   }

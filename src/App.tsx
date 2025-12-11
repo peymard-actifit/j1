@@ -138,6 +138,8 @@ const AppContent = () => {
         <Header
           onEditClick={() => setShowDataEditor(true)}
         />
+        
+        {/* Le AdminPanel est maintenant dans Header */}
 
         {!showWelcome && !showCVUpload && !showDataEditor && user && (
           <div className="main-dashboard">
