@@ -72,6 +72,7 @@ export const LoginScreen = ({ onClose }: LoginScreenProps) => {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
+              autoComplete={isLogin ? "current-password" : "new-password"}
               required
             />
           </div>

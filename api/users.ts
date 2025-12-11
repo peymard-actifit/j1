@@ -50,45 +50,72 @@ export default async function handler(
       }
       
       if (id) {
-        const result = await sql`
-          SELECT 
-            id,
-            email,
-            password,
-            name,
-            base_language as "baseLanguage",
-            is_admin as "isAdmin",
-            data,
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM users WHERE id = ${id as string}
-        `;
-        const user = result.rows[0];
-        if (user && user.data) {
-          user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        try {
+          const result = await sql`
+            SELECT 
+              id,
+              email,
+              password,
+              name,
+              base_language as "baseLanguage",
+              is_admin as "isAdmin",
+              data,
+              created_at as "createdAt",
+              updated_at as "updatedAt"
+            FROM users WHERE id = ${id as string}
+          `;
+          const user = result.rows[0];
+          if (!user) {
+            return res.status(200).json(null);
+          }
+          if (user && user.data) {
+            try {
+              user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+            } catch (parseError) {
+              console.error('Error parsing user data:', parseError);
+              user.data = [];
+            }
+          }
+          return res.status(200).json(user);
+        } catch (error: any) {
+          console.error('Error fetching user by id:', error);
+          return res.status(200).json(null);
         }
-        return res.status(200).json(user || null);
       }
       
       if (email) {
-        const result = await sql`
-          SELECT 
-            id,
-            email,
-            password,
-            name,
-            base_language as "baseLanguage",
-            is_admin as "isAdmin",
-            data,
-            created_at as "createdAt",
-            updated_at as "updatedAt"
-          FROM users WHERE email = ${email as string}
-        `;
-        const user = result.rows[0];
-        if (user && user.data) {
-          user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        try {
+          const result = await sql`
+            SELECT 
+              id,
+              email,
+              password,
+              name,
+              base_language as "baseLanguage",
+              is_admin as "isAdmin",
+              data,
+              created_at as "createdAt",
+              updated_at as "updatedAt"
+            FROM users WHERE email = ${email as string}
+          `;
+          const user = result.rows[0];
+          if (!user) {
+            return res.status(200).json(null);
+          }
+          if (user && user.data) {
+            try {
+              user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+            } catch (parseError) {
+              console.error('Error parsing user data:', parseError);
+              user.data = [];
+            }
+          }
+          return res.status(200).json(user);
+        } catch (error: any) {
+          console.error('Error fetching user by email:', error);
+          // Retourner null au lieu d'une erreur 500 si l'utilisateur n'existe pas
+          return res.status(200).json(null);
         }
-        return res.status(200).json(user || null);
       }
       
       const result = await sql`
