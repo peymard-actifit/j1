@@ -2,7 +2,11 @@ import { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import './LoginScreen.css';
 
-export const LoginScreen = () => {
+interface LoginScreenProps {
+  onClose?: () => void;
+}
+
+export const LoginScreen = ({ onClose }: LoginScreenProps) => {
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -19,9 +23,14 @@ export const LoginScreen = () => {
         const success = await login(email, password);
         if (!success) {
           setError('Email ou mot de passe incorrect');
+        } else if (onClose) {
+          onClose();
         }
       } else {
         await register(email, password, name);
+        if (onClose) {
+          onClose();
+        }
       }
     } catch (err: any) {
       setError(err.message || 'Une erreur est survenue');
@@ -83,6 +92,15 @@ export const LoginScreen = () => {
             ? "Pas encore de compte ? S'inscrire"
             : 'Déjà un compte ? Se connecter'}
         </button>
+        {onClose && (
+          <button
+            className="switch-mode-button"
+            onClick={onClose}
+            style={{ marginTop: '0.5rem' }}
+          >
+            Retour
+          </button>
+        )}
       </div>
     </div>
   );

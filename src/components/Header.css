@@ -36,31 +36,10 @@
   color: #333;
 }
 
-.header-center {
-  flex: 1;
-  display: flex;
-  justify-content: center;
-}
-
-.ai-button {
-  padding: 0.5rem 1.5rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  font-weight: 600;
-  font-size: 1.1rem;
-  transition: transform 0.3s;
-}
-
-.ai-button:hover {
-  transform: scale(1.05);
-}
-
 .header-right {
   display: flex;
   align-items: center;
+  margin-left: auto;
 }
 
 .user-menu {

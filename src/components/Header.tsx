@@ -4,10 +4,9 @@ import './Header.css';
 
 interface HeaderProps {
   onEditClick: () => void;
-  onAIClick: () => void;
 }
 
-export const Header = ({ onEditClick, onAIClick }: HeaderProps) => {
+export const Header = ({ onEditClick }: HeaderProps) => {
   const { user, logout } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
@@ -30,12 +29,6 @@ export const Header = ({ onEditClick, onAIClick }: HeaderProps) => {
           ✏️ Édition
         </button>
         <span className="user-name">{user?.name || 'Utilisateur'}</span>
-      </div>
-
-      <div className="header-center">
-        <button className="ai-button" onClick={onAIClick}>
-          🤖 IA
-        </button>
       </div>
 
       <div className="header-right">

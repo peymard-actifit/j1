@@ -62,14 +62,13 @@ const AppContent = () => {
       <div className="app-content" style={{ marginTop: '50px' }}>
         <Header
           onEditClick={() => setShowDataEditor(true)}
-          onAIClick={() => setShowAIPanel(true)}
         />
 
         {showWelcome && (
           <WelcomeScreen onChoice={handleWelcomeChoice} />
         )}
 
-        {!showWelcome && !showCVUpload && !showDataEditor && (
+        {!showWelcome && !showCVUpload && !showDataEditor && user && (
           <div className="main-dashboard">
             <h1>Bienvenue, {user.name} !</h1>
             <p>Gérez vos données CV et générez des CVs personnalisés.</p>
@@ -77,9 +76,23 @@ const AppContent = () => {
             <div className="dashboard-actions">
               <button
                 className="dashboard-button"
-                onClick={() => setShowWelcome(true)}
+                onClick={() => {
+                  // Partir de zéro - initialiser avec structure par défaut
+                  if (user.data.length === 0) {
+                    const defaultData = initializeDefaultStructure();
+                    const updatedUser = { ...user, data: defaultData };
+                    storage.saveUser(updatedUser);
+                  }
+                  setShowDataEditor(true);
+                }}
               >
                 Nouveau CV
+              </button>
+              <button
+                className="dashboard-button"
+                onClick={() => setShowCVUpload(true)}
+              >
+                Importer un CV
               </button>
               <button
                 className="dashboard-button"
