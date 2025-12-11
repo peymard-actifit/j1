@@ -234,51 +234,101 @@ export default async function handler(
     try {
       const { id, ...updates } = req.body;
       
-      const fields = [];
-      const values = [];
+      if (!id) {
+        return res.status(400).json({ error: 'ID requis' });
+      }
       
-      if (updates.email) {
-        fields.push('email');
-        values.push(updates.email);
+      const now = new Date().toISOString();
+      const updateFields: string[] = [];
+      const updateValues: any[] = [];
+      
+      if (updates.email !== undefined) {
+        updateFields.push('email');
+        updateValues.push(updates.email);
       }
-      if (updates.password) {
-        fields.push('password');
-        values.push(updates.password);
-        // Mettre à jour password_changed_at si le mot de passe change
-        fields.push('password_changed_at');
-        values.push('NOW()');
+      if (updates.password !== undefined) {
+        updateFields.push('password');
+        updateValues.push(updates.password);
+        updateFields.push('password_changed_at');
+        updateValues.push(now);
       }
-      if (updates.name) {
-        fields.push('name');
-        values.push(updates.name);
+      if (updates.name !== undefined) {
+        updateFields.push('name');
+        updateValues.push(updates.name);
       }
-      if (updates.baseLanguage) {
-        fields.push('base_language');
-        values.push(updates.baseLanguage);
+      if (updates.baseLanguage !== undefined) {
+        updateFields.push('base_language');
+        updateValues.push(updates.baseLanguage);
       }
       if (updates.isAdmin !== undefined) {
-        fields.push('is_admin');
-        values.push(updates.isAdmin);
+        updateFields.push('is_admin');
+        updateValues.push(updates.isAdmin);
       }
-      if (updates.data) {
-        fields.push('data');
-        values.push(JSON.stringify(updates.data));
-      }
-      
-      fields.push('updated_at');
-      values.push('NOW()');
-      
-      if (fields.length > 1) {
-        const setClause = fields.map((field, idx) => 
-          `${field} = ${idx < values.length - 1 ? `$${idx + 1}` : 'NOW()'}`
-        ).join(', ');
-        
-        const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
-        values.push(id);
-        
-        await sql.query(query, values);
+      if (updates.data !== undefined) {
+        updateFields.push('data');
+        updateValues.push(JSON.stringify(updates.data));
       }
       
+      updateFields.push('updated_at');
+      updateValues.push(now);
+      
+      if (updateFields.length === 0) {
+        // Aucun champ à mettre à jour, juste retourner l'utilisateur
+        const result = await sql`
+          SELECT 
+            id,
+            email,
+            password,
+            name,
+            base_language as "baseLanguage",
+            is_admin as "isAdmin",
+            data,
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM users WHERE id = ${id}
+        `;
+        const user = result.rows[0];
+        if (!user) {
+          return res.status(404).json({ error: 'Utilisateur non trouvé' });
+        }
+        if (user && user.data) {
+          try {
+            user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+          } catch (parseError) {
+            console.error('Error parsing user data:', parseError);
+            user.data = [];
+          }
+        }
+        return res.status(200).json(user);
+      }
+      
+      // Construire et exécuter les mises à jour champ par champ
+      // Cette approche est plus sûre avec @vercel/postgres qui utilise uniquement les template literals
+      if (updates.email !== undefined) {
+        await sql`UPDATE users SET email = ${updates.email}, updated_at = ${now} WHERE id = ${id}`;
+      }
+      if (updates.password !== undefined) {
+        await sql`UPDATE users SET password = ${updates.password}, password_changed_at = ${now}, updated_at = ${now} WHERE id = ${id}`;
+      }
+      if (updates.name !== undefined) {
+        await sql`UPDATE users SET name = ${updates.name}, updated_at = ${now} WHERE id = ${id}`;
+      }
+      if (updates.baseLanguage !== undefined) {
+        await sql`UPDATE users SET base_language = ${updates.baseLanguage}, updated_at = ${now} WHERE id = ${id}`;
+      }
+      if (updates.isAdmin !== undefined) {
+        await sql`UPDATE users SET is_admin = ${updates.isAdmin}, updated_at = ${now} WHERE id = ${id}`;
+      }
+      if (updates.data !== undefined) {
+        await sql`UPDATE users SET data = ${JSON.stringify(updates.data)}::jsonb, updated_at = ${now} WHERE id = ${id}`;
+      }
+      
+      // S'assurer que updated_at est toujours mis à jour
+      if (updateFields.length > 0) {
+        await sql`UPDATE users SET updated_at = ${now} WHERE id = ${id}`;
+      }
+      
+      // Récupérer l'utilisateur mis à jour
       const result = await sql`
         SELECT 
           id,
@@ -293,13 +343,23 @@ export default async function handler(
         FROM users WHERE id = ${id}
       `;
       const user = result.rows[0];
+      if (!user) {
+        return res.status(404).json({ error: 'Utilisateur non trouvé' });
+      }
       if (user && user.data) {
-        user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        try {
+          user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        } catch (parseError) {
+          console.error('Error parsing user data:', parseError);
+          user.data = [];
+        }
+      } else {
+        user.data = [];
       }
       return res.status(200).json(user);
     } catch (error: any) {
       console.error('PUT users error:', error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: error.message || 'Erreur lors de la mise à jour de l\'utilisateur' });
     }
   }
 
