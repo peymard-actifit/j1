@@ -1,0 +1,590 @@
+import { useState, useEffect } from 'react';
+import { useAuth } from '../contexts/AuthContext';
+import { storage } from '../utils/storage';
+import { api } from '../utils/api';
+import { UserDataField, LanguageVersion } from '../types/database';
+import { analyzeCVFile } from '../utils/ai';
+import './CVImport.css';
+
+interface CVImportProps {
+  onComplete: () => void;
+  onCancel: () => void;
+}
+
+interface ExtractedData {
+  [key: string]: any;
+}
+
+interface FieldMapping {
+  fieldId: string;
+  extractedKey: string;
+  extractedValue: string;
+  targetLanguage: string;
+  targetVersion: 1 | 2 | 3; // Version AI (1, 2 ou 3)
+  confirmed: boolean;
+}
+
+export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
+  const { user, setUser } = useAuth();
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
+  const [mappings, setMappings] = useState<FieldMapping[]>([]);
+  const [userFields, setUserFields] = useState<UserDataField[]>([]);
+  const [error, setError] = useState('');
+  const [step, setStep] = useState<'select' | 'analyze' | 'map' | 'saving'>('select');
+
+  useEffect(() => {
+    if (user) {
+      if (user.data && user.data.length > 0) {
+        setUserFields(user.data);
+      } else {
+        // Initialiser avec la structure par défaut si l'utilisateur n'a pas encore de données
+        const { initializeDefaultStructure } = require('../utils/storage');
+        const defaultFields = initializeDefaultStructure();
+        setUserFields(defaultFields);
+      }
+    }
+  }, [user]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = e.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+      setError('');
+    }
+  };
+
+  const handleAnalyze = async () => {
+    if (!file) {
+      setError('Veuillez sélectionner un fichier');
+      return;
+    }
+
+    setAnalyzing(true);
+    setError('');
+    setStep('analyze');
+
+    try {
+      // Lire le contenu du fichier
+      const fileContent = await readFileContent(file);
+      
+      // Analyser avec l'API IA
+      const analysis = await analyzeCVFile(file);
+      setExtractedData(analysis);
+      
+      // Générer des mappings automatiques
+      const autoMappings = generateAutoMappings(analysis, userFields);
+      setMappings(autoMappings);
+      setStep('map');
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de l\'analyse du CV');
+      setStep('select');
+    } finally {
+      setAnalyzing(false);
+    }
+  };
+
+  const readFileContent = async (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        // Pour les PDF, extraire le texte si possible
+        if (file.type === 'application/pdf') {
+          // Pour l'instant, on envoie le base64, l'API devra le gérer
+          resolve(result);
+        } else {
+          resolve(result);
+        }
+      };
+      reader.onerror = reject;
+      
+      if (file.type === 'application/pdf') {
+        reader.readAsDataURL(file);
+      } else {
+        reader.readAsText(file);
+      }
+    });
+  };
+
+  const generateAutoMappings = (extracted: ExtractedData, fields: UserDataField[]): FieldMapping[] => {
+    const mappings: FieldMapping[] = [];
+    const baseLanguage = user?.baseLanguage || 'fr';
+
+    // Mapping automatique amélioré basé sur les tags et noms de champs
+    const fieldMap: Record<string, string[]> = {
+      'prenom': ['firstname', 'firstName', 'prenom', 'prénom'],
+      'nom': ['lastname', 'lastName', 'nom', 'surname', 'name'],
+      'mail': ['email', 'mail', 'courriel', 'e-mail'],
+      'telephone': ['phone', 'telephone', 'tel', 'mobile', 'téléphone'],
+      'adresse01': ['addressline1', 'addressLine1', 'adresse', 'street', 'rue', 'address'],
+      'adresse02': ['addressline2', 'addressLine2', 'adresse2'],
+      'codepostal': ['postalcode', 'postalCode', 'codepostal', 'codePostal', 'zip', 'zipcode'],
+      'ville': ['city', 'ville'],
+      'pays': ['country', 'pays'],
+      'region': ['region', 'région', 'state'],
+      'datedenaissance': ['birthdate', 'birthDate', 'datedenaissance', 'dateDeNaissance', 'dob'],
+      'lieudenaissance': ['birthplace', 'birthPlace', 'lieudenaissance', 'lieuDeNaissance'],
+      'posterecherche': ['jobtitle', 'jobTitle', 'posterecherche', 'posteRecherche', 'position'],
+      'resumeprofessionnel': ['summary', 'resume', 'resumeprofessionnel', 'résumé', 'profil', 'profile'],
+      'langue01': ['languages', 'langue', 'language'],
+      'niveaulangue01': ['languagelevel', 'languageLevel', 'niveaulangue'],
+    };
+
+    // Parcourir les champs utilisateur et créer des mappings automatiques
+    fields.forEach(field => {
+      const possibleKeys = fieldMap[field.id] || [
+        field.tag.toLowerCase(),
+        field.name.toLowerCase(),
+        field.id.toLowerCase()
+      ];
+      
+      // Chercher une correspondance dans les données extraites
+      for (const [key, value] of Object.entries(extracted)) {
+        const keyLower = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matches = possibleKeys.some(pk => {
+          const pkClean = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return keyLower === pkClean || keyLower.includes(pkClean) || pkClean.includes(keyLower);
+        });
+        
+        if (matches && value !== null && value !== undefined) {
+          let stringValue = '';
+          if (typeof value === 'string') {
+            stringValue = value.trim();
+          } else if (Array.isArray(value)) {
+            stringValue = value.join(', ');
+          } else {
+            stringValue = String(value);
+          }
+          
+          if (stringValue) {
+            mappings.push({
+              fieldId: field.id,
+              extractedKey: key,
+              extractedValue: stringValue,
+              targetLanguage: baseLanguage,
+              targetVersion: 1,
+              confirmed: false,
+            });
+            break; // Une seule correspondance par champ
+          }
+        }
+      }
+    });
+
+    // Gérer les expériences professionnelles (XP01 à XP10)
+    if (extracted.experience && Array.isArray(extracted.experience)) {
+      extracted.experience.slice(0, 10).forEach((exp: any, idx: number) => {
+        const num = String(idx + 1).padStart(2, '0');
+        const xpFields = fields.filter(f => f.id.startsWith(`xp${num}`));
+        
+        xpFields.forEach(field => {
+          const fieldType = field.id.replace(`xp${num}`, '').toLowerCase();
+          let value = '';
+          
+          if (fieldType.includes('entreprise') || fieldType.includes('company')) {
+            value = exp.company || '';
+          } else if (fieldType.includes('poste') || fieldType.includes('title')) {
+            value = exp.title || '';
+          } else if (fieldType.includes('datedebut') || fieldType.includes('startdate')) {
+            value = exp.startDate || '';
+          } else if (fieldType.includes('datefin') || fieldType.includes('enddate')) {
+            value = exp.endDate || '';
+          } else if (fieldType.includes('mission') || fieldType.includes('description')) {
+            value = exp.description || exp.mission || '';
+          } else if (fieldType.includes('resultats') || fieldType.includes('results')) {
+            value = exp.results || '';
+          }
+          
+          if (value && typeof value === 'string' && value.trim()) {
+            mappings.push({
+              fieldId: field.id,
+              extractedKey: `experience[${idx}].${fieldType}`,
+              extractedValue: value.trim(),
+              targetLanguage: baseLanguage,
+              targetVersion: 1,
+              confirmed: false,
+            });
+          }
+        });
+      });
+    }
+
+    // Gérer les formations (FOR01 à FOR10)
+    if (extracted.education && Array.isArray(extracted.education)) {
+      extracted.education.slice(0, 10).forEach((edu: any, idx: number) => {
+        const num = String(idx + 1).padStart(2, '0');
+        const forFields = fields.filter(f => f.id.startsWith(`for${num}`));
+        
+        forFields.forEach(field => {
+          const fieldType = field.id.replace(`for${num}`, '').toLowerCase();
+          let value = '';
+          
+          if (fieldType.includes('diplome') || fieldType.includes('degree')) {
+            value = edu.degree || '';
+          } else if (fieldType.includes('ecole') || fieldType.includes('school')) {
+            value = edu.school || '';
+          } else if (fieldType.includes('datedebut') || fieldType.includes('startdate')) {
+            value = edu.startDate || '';
+          } else if (fieldType.includes('datefin') || fieldType.includes('enddate')) {
+            value = edu.endDate || '';
+          } else if (fieldType.includes('description')) {
+            value = edu.description || '';
+          }
+          
+          if (value && typeof value === 'string' && value.trim()) {
+            mappings.push({
+              fieldId: field.id,
+              extractedKey: `education[${idx}].${fieldType}`,
+              extractedValue: value.trim(),
+              targetLanguage: baseLanguage,
+              targetVersion: 1,
+              confirmed: false,
+            });
+          }
+        });
+      });
+    }
+
+    // Gérer les compétences
+    if (extracted.skills && Array.isArray(extracted.skills)) {
+      const skillsText = extracted.skills.join(', ');
+      const skillsField = fields.find(f => f.id === 'competences' || f.tag.toLowerCase().includes('competence'));
+      if (skillsField && skillsText) {
+        mappings.push({
+          fieldId: skillsField.id,
+          extractedKey: 'skills',
+          extractedValue: skillsText,
+          targetLanguage: baseLanguage,
+          targetVersion: 1,
+          confirmed: false,
+        });
+      }
+    }
+
+    // Gérer les langues
+    if (extracted.languages && Array.isArray(extracted.languages)) {
+      extracted.languages.forEach((lang: any, idx: number) => {
+        if (idx === 0) {
+          // Langue principale
+          const langField = fields.find(f => f.id === 'langue01');
+          const levelField = fields.find(f => f.id === 'niveaulangue01');
+          
+          if (langField && lang.language) {
+            mappings.push({
+              fieldId: langField.id,
+              extractedKey: `languages[0].language`,
+              extractedValue: lang.language,
+              targetLanguage: baseLanguage,
+              targetVersion: 1,
+              confirmed: false,
+            });
+          }
+          
+          if (levelField && lang.level) {
+            mappings.push({
+              fieldId: levelField.id,
+              extractedKey: `languages[0].level`,
+              extractedValue: lang.level,
+              targetLanguage: baseLanguage,
+              targetVersion: 1,
+              confirmed: false,
+            });
+          }
+        }
+      });
+    }
+
+    return mappings;
+  };
+
+  const handleMappingChange = (index: number, updates: Partial<FieldMapping>) => {
+    const updated = [...mappings];
+    updated[index] = { ...updated[index], ...updates };
+    setMappings(updated);
+  };
+
+  const handleConfirmMapping = (index: number) => {
+    const updated = [...mappings];
+    updated[index].confirmed = true;
+    setMappings(updated);
+  };
+
+  const handleSaveMappings = async () => {
+    if (!user || !setUser) return;
+
+    setStep('saving');
+    setError('');
+
+    try {
+      const updatedFields = [...userFields];
+
+      // Appliquer les mappings confirmés
+      mappings.filter(m => m.confirmed).forEach(mapping => {
+        const field = updatedFields.find(f => f.id === mapping.fieldId);
+        if (!field) return;
+
+        // Mettre à jour la valeur de base ou ajouter une version de langue
+        if (mapping.targetLanguage === field.baseLanguage) {
+          // Pour la langue de base, utiliser aiVersions (versions 1, 2 ou 3)
+          if (!field.aiVersions) {
+            field.aiVersions = [];
+          }
+          
+          const existingVersion = field.aiVersions.find(v => v.version === mapping.targetVersion);
+          if (existingVersion) {
+            existingVersion.value = mapping.extractedValue;
+            existingVersion.createdAt = new Date().toISOString();
+          } else {
+            field.aiVersions.push({
+              version: mapping.targetVersion,
+              value: mapping.extractedValue,
+              createdAt: new Date().toISOString(),
+            });
+            // Trier par version pour maintenir l'ordre
+            field.aiVersions.sort((a, b) => a.version - b.version);
+          }
+        } else {
+          // Pour les autres langues, utiliser languageVersions
+          // Note: Pour l'instant, une seule valeur par langue, mais on peut étendre plus tard
+          if (!field.languageVersions) {
+            field.languageVersions = [];
+          }
+          
+          const existingLangVersion = field.languageVersions.find(
+            lv => lv.language === mapping.targetLanguage
+          );
+          if (existingLangVersion) {
+            existingLangVersion.value = mapping.extractedValue;
+            existingLangVersion.createdAt = new Date().toISOString();
+          } else {
+            field.languageVersions.push({
+              language: mapping.targetLanguage,
+              value: mapping.extractedValue,
+              createdAt: new Date().toISOString(),
+            });
+          }
+        }
+
+        field.updatedAt = new Date().toISOString();
+      });
+
+      // Sauvegarder les champs mis à jour
+      const updatedUser = { ...user, data: updatedFields };
+      const savedUser = await storage.saveUser(updatedUser);
+      setUser(savedUser);
+
+      onComplete();
+    } catch (err: any) {
+      setError(err.message || 'Erreur lors de la sauvegarde');
+      setStep('map');
+    }
+  };
+
+  const getFieldName = (fieldId: string): string => {
+    const field = userFields.find(f => f.id === fieldId);
+    return field?.name || fieldId;
+  };
+
+  const getAvailableLanguages = (): string[] => {
+    return ['fr', 'en', 'es', 'de', 'it', 'pt'];
+  };
+
+  return (
+    <div className="cv-import-overlay">
+      <div className="cv-import">
+        <div className="cv-import-header">
+          <h2>Importer un CV</h2>
+          <button onClick={onCancel} className="close-button">✕</button>
+        </div>
+
+        <div className="cv-import-content">
+          {step === 'select' && (
+            <div className="cv-import-step">
+              <p className="step-description">
+                Sélectionnez un fichier CV à importer. Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, JSON
+              </p>
+              
+              <div className="file-selector">
+                <label className="file-upload-label">
+                  <input
+                    type="file"
+                    accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.tex,.json"
+                    onChange={handleFileChange}
+                    className="file-input"
+                  />
+                  <span className="file-upload-button">Choisir un fichier</span>
+                </label>
+                {file && (
+                  <div className="file-info">
+                    <span className="file-name">{file.name}</span>
+                    <span className="file-size">{(file.size / 1024).toFixed(2)} KB</span>
+                  </div>
+                )}
+              </div>
+
+              {error && <div className="error-message">{error}</div>}
+
+              <div className="cv-import-actions">
+                <button onClick={onCancel} className="button-secondary">Annuler</button>
+                <button
+                  onClick={handleAnalyze}
+                  className="button-primary"
+                  disabled={!file || analyzing}
+                >
+                  {analyzing ? 'Analyse en cours...' : 'Analyser avec IA'}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'analyze' && (
+            <div className="cv-import-step">
+              <div className="loading-spinner">
+                <p>Analyse du CV en cours...</p>
+                <p className="loading-subtitle">Extraction des données avec l'IA</p>
+              </div>
+            </div>
+          )}
+
+          {step === 'map' && extractedData && (
+            <div className="cv-import-step">
+              <h3>Validation et mapping des données</h3>
+              <p className="step-description">
+                Vérifiez et validez les correspondances entre les données extraites et vos champs CV.
+                Vous pouvez assigner chaque valeur à un champ, une langue et une version (1, 2 ou 3).
+              </p>
+
+              <div className="mappings-summary">
+                <p className="summary-text">
+                  <strong>{mappings.length}</strong> correspondance(s) trouvée(s). 
+                  <strong className="confirmed-count"> {mappings.filter(m => m.confirmed).length}</strong> validée(s).
+                </p>
+                <button
+                  onClick={() => {
+                    const allValid = mappings.filter(m => m.fieldId).map((m, idx) => {
+                      const updated = [...mappings];
+                      updated[idx].confirmed = true;
+                      return updated[idx];
+                    });
+                    setMappings(allValid);
+                  }}
+                  className="button-bulk-confirm"
+                  disabled={mappings.filter(m => m.fieldId && !m.confirmed).length === 0}
+                >
+                  ✓ Valider toutes les correspondances
+                </button>
+              </div>
+
+              <div className="mappings-list">
+                {mappings.length === 0 ? (
+                  <p className="no-mappings">Aucune correspondance automatique trouvée. Vous pouvez ajouter manuellement des mappings.</p>
+                ) : (
+                  mappings.map((mapping, index) => (
+                    <div key={index} className={`mapping-item ${mapping.confirmed ? 'confirmed' : ''}`}>
+                      <div className="mapping-source">
+                        <strong>Source:</strong> {mapping.extractedKey}
+                        <div className="source-value">{mapping.extractedValue}</div>
+                      </div>
+                      
+                      <div className="mapping-target">
+                        <label>
+                          Champ:
+                          <select
+                            value={mapping.fieldId}
+                            onChange={(e) => handleMappingChange(index, { fieldId: e.target.value })}
+                            disabled={mapping.confirmed}
+                          >
+                            <option value="">Sélectionner un champ</option>
+                            {userFields.map(field => (
+                              <option key={field.id} value={field.id}>{field.name} ({field.tag})</option>
+                            ))}
+                          </select>
+                        </label>
+
+                        <div className="mapping-target-row">
+                          <label>
+                            Langue:
+                            <select
+                              value={mapping.targetLanguage}
+                              onChange={(e) => handleMappingChange(index, { targetLanguage: e.target.value })}
+                              disabled={mapping.confirmed}
+                            >
+                              {getAvailableLanguages().map(lang => (
+                                <option key={lang} value={lang}>{lang.toUpperCase()}</option>
+                              ))}
+                            </select>
+                          </label>
+
+                          <label>
+                            Version (1, 2 ou 3):
+                            <select
+                              value={mapping.targetVersion}
+                              onChange={(e) => handleMappingChange(index, { targetVersion: parseInt(e.target.value) as 1 | 2 | 3 })}
+                              disabled={mapping.confirmed}
+                            >
+                              <option value="1">Version 1</option>
+                              <option value="2">Version 2</option>
+                              <option value="3">Version 3</option>
+                            </select>
+                          </label>
+                        </div>
+                      </div>
+
+                      <div className="mapping-actions">
+                        {!mapping.confirmed ? (
+                          <button
+                            onClick={() => handleConfirmMapping(index)}
+                            className="button-confirm"
+                            disabled={!mapping.fieldId}
+                          >
+                            ✓ Valider
+                          </button>
+                        ) : (
+                          <div className="mapping-confirmed">
+                            <span className="confirmed-badge">✓ Validé</span>
+                            <button
+                              onClick={() => handleMappingChange(index, { confirmed: false })}
+                              className="button-edit"
+                            >
+                              Modifier
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+
+              {error && <div className="error-message">{error}</div>}
+
+              <div className="cv-import-actions">
+                <button onClick={() => setStep('select')} className="button-secondary">Retour</button>
+                <button
+                  onClick={handleSaveMappings}
+                  className="button-primary"
+                  disabled={mappings.filter(m => m.confirmed).length === 0 || step === 'saving'}
+                >
+                  {step === 'saving' ? 'Sauvegarde...' : `Sauvegarder (${mappings.filter(m => m.confirmed).length} validés)`}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {step === 'saving' && (
+            <div className="cv-import-step">
+              <div className="loading-spinner">
+                <p>Sauvegarde des données en cours...</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+

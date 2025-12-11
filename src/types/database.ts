@@ -72,3 +72,9 @@ export interface CVGeneration {
   pdfUrl?: string;
 }
 
+
+
+
+
+
+

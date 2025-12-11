@@ -3,6 +3,7 @@ import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomeScreen } from './components/WelcomeScreen';
 import { CVUpload } from './components/CVUpload';
+import { CVImport } from './components/CVImport';
 import { LoginScreen } from './components/LoginScreen';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
@@ -163,33 +164,37 @@ const AppContent = () => {
             <p>Gérez vos données CV et générez des CVs personnalisés.</p>
             
             <div className="dashboard-actions">
-              <button
-                className="dashboard-button"
-                onClick={() => {
-                  // Partir de zéro - initialiser avec structure par défaut
-                  if (!user.data || user.data.length === 0) {
+              {/* Afficher "Nouveau CV" uniquement si l'utilisateur n'a pas encore de données */}
+              {(!user.data || user.data.length === 0) && (
+                <button
+                  className="dashboard-button"
+                  onClick={() => {
+                    // Partir de zéro - initialiser avec structure par défaut
                     const defaultData = initializeDefaultStructure();
                     const updatedUser = { ...user, data: defaultData };
                     storage.saveUser(updatedUser).catch(error => {
                       console.error('Error saving default structure:', error);
                     });
-                  }
-                  setShowDataEditor(true);
-                }}
-              >
-                Nouveau CV
-              </button>
+                    setShowDataEditor(true);
+                  }}
+                >
+                  Nouveau CV
+                </button>
+              )}
+              {/* Afficher "Éditer mes données" uniquement si l'utilisateur a déjà des données */}
+              {user.data && user.data.length > 0 && (
+                <button
+                  className="dashboard-button"
+                  onClick={() => setShowDataEditor(true)}
+                >
+                  Éditer mes données
+                </button>
+              )}
               <button
                 className="dashboard-button"
                 onClick={() => setShowCVUpload(true)}
               >
                 Importer un CV
-              </button>
-              <button
-                className="dashboard-button"
-                onClick={() => setShowDataEditor(true)}
-              >
-                Éditer mes données
               </button>
             </div>
 
@@ -203,8 +208,11 @@ const AppContent = () => {
         )}
 
         {showCVUpload && (
-          <CVUpload
-            onAnalysisComplete={handleCVAnalysisComplete}
+          <CVImport
+            onComplete={() => {
+              setShowCVUpload(false);
+              setShowDataEditor(true);
+            }}
             onCancel={() => setShowCVUpload(false)}
           />
         )}
