@@ -109,8 +109,8 @@ try {
         Write-Warning "Token Vercel non trouvé, tentative de déploiement sans token"
     }
     
-    # Déploiement
-    vercel --prod --yes --token $vercelToken
+    # Déploiement avec spécification explicite du nom du projet
+    vercel --prod --yes --token $vercelToken --name j1
     if ($LASTEXITCODE -ne 0) {
         Write-Warning "Le déploiement Vercel a peut-être échoué, mais le commit et le build sont réussis"
     } else {
