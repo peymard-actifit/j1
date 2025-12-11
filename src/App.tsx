@@ -13,11 +13,13 @@ import './App.css';
 
 const AppContent = () => {
   const { user } = useAuth();
-  const [showWelcome, setShowWelcome] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(!user); // Afficher directement pour les non-connectés
   const [showCVUpload, setShowCVUpload] = useState(false);
   const [showDataEditor, setShowDataEditor] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [showLogin, setShowLogin] = useState(false);
   const [currentModule, setCurrentModule] = useState<string | null>(null);
+  const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
 
   useEffect(() => {
     if (user && user.data.length === 0) {
@@ -28,22 +30,45 @@ const AppContent = () => {
     }
   }, [user]);
 
-  if (!user) {
-    return <LoginScreen />;
-  }
+  // Si l'utilisateur vient de s'inscrire et qu'il y a un choix en attente
+  useEffect(() => {
+    if (user && pendingChoice) {
+      setShowLogin(false);
+      setShowWelcome(false);
+      if (pendingChoice === 'cv') {
+        setShowCVUpload(true);
+      } else {
+        // Partir de zéro - initialiser avec structure par défaut
+        if (user.data.length === 0) {
+          const defaultData = initializeDefaultStructure();
+          const updatedUser = { ...user, data: defaultData };
+          storage.saveUser(updatedUser);
+        }
+        setShowDataEditor(true);
+      }
+      setPendingChoice(null);
+    }
+  }, [user, pendingChoice]);
 
   const handleWelcomeChoice = (hasCV: boolean) => {
     setShowWelcome(false);
-    if (hasCV) {
-      setShowCVUpload(true);
+    // Si l'utilisateur n'est pas connecté, demander de créer un compte
+    if (!user) {
+      setPendingChoice(hasCV ? 'cv' : 'zero');
+      setShowLogin(true);
     } else {
-      // Partir de zéro - initialiser avec structure par défaut
-      if (user.data.length === 0) {
-        const defaultData = initializeDefaultStructure();
-        const updatedUser = { ...user, data: defaultData };
-        storage.saveUser(updatedUser);
+      // Utilisateur connecté, procéder directement
+      if (hasCV) {
+        setShowCVUpload(true);
+      } else {
+        // Partir de zéro - initialiser avec structure par défaut
+        if (user.data.length === 0) {
+          const defaultData = initializeDefaultStructure();
+          const updatedUser = { ...user, data: defaultData };
+          storage.saveUser(updatedUser);
+        }
+        setShowDataEditor(true);
       }
-      setShowDataEditor(true);
     }
   };
 
@@ -52,6 +77,21 @@ const AppContent = () => {
     // TODO: Intégrer les données analysées dans la base de données utilisateur
     setShowDataEditor(true);
   };
+
+  // Afficher l'écran de login si demandé
+  if (showLogin && !user) {
+    return <LoginScreen onClose={() => setShowLogin(false)} />;
+  }
+
+  // Afficher l'écran de bienvenue pour les non-connectés
+  if (!user && !showLogin) {
+    return <WelcomeScreen onChoice={handleWelcomeChoice} />;
+  }
+
+  // Si l'utilisateur est connecté, masquer le welcome
+  if (user && showWelcome) {
+    setShowWelcome(false);
+  }
 
   return (
     <div className="app">
@@ -63,10 +103,6 @@ const AppContent = () => {
         <Header
           onEditClick={() => setShowDataEditor(true)}
         />
-
-        {showWelcome && (
-          <WelcomeScreen onChoice={handleWelcomeChoice} />
-        )}
 
         {!showWelcome && !showCVUpload && !showDataEditor && user && (
           <div className="main-dashboard">
