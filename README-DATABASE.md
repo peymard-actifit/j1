@@ -9,8 +9,8 @@
 
 2. **Configurer les variables d'environnement** :
    - Dans le dashboard Vercel, aller dans "Settings" → "Environment Variables"
-   - Ajouter `OPENAI_API_KEY` (déjà configuré)
-   - Les variables de connexion Postgres sont automatiquement ajoutées par Vercel
+   - Ajouter `OPENAI_API_KEY` avec votre clé API OpenAI
+   - Les variables de connexion Postgres (`POSTGRES_URL`, `POSTGRES_PRISMA_URL`, etc.) sont automatiquement ajoutées par Vercel lors de la création de la base de données
 
 3. **Exécuter le script SQL d'initialisation** :
    - Aller dans l'onglet "Storage" de votre projet Vercel
