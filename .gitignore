@@ -25,3 +25,5 @@ dist-ssr
 
 .vercel
 .env*.local
+
+# Note: login.json est commité intentionnellement pour le prototype

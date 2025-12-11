@@ -98,7 +98,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       const newUser: User = {
         id: Date.now().toString(),
         email,
-        password, // TODO: hash password
+        password, // Stocké en clair dans login.json (prototype)
         name,
         baseLanguage: 'fr',
         isAdmin: false,
@@ -108,10 +108,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       };
 
       const savedUser = await storage.saveUser(newUser);
+      // Attendre un peu pour s'assurer que l'utilisateur est bien sauvegardé
+      await new Promise(resolve => setTimeout(resolve, 100));
       setUser(savedUser);
       storage.setCurrentUser(savedUser);
       return savedUser;
     } catch (error: any) {
+      console.error('Register error:', error);
       throw error;
     }
   };

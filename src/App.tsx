@@ -12,7 +12,7 @@ import { initializeDefaultStructure } from './utils/storage';
 import './App.css';
 
 const AppContent = () => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [showWelcome, setShowWelcome] = useState(false);
   const [showCVUpload, setShowCVUpload] = useState(false);
   const [showDataEditor, setShowDataEditor] = useState(false);
@@ -54,18 +54,25 @@ const AppContent = () => {
     if (user && pendingChoice) {
       setShowLogin(false);
       setShowWelcome(false);
-      if (pendingChoice === 'cv') {
-        setShowCVUpload(true);
-      } else {
-        // Partir de zéro - initialiser avec structure par défaut
-        if (user.data.length === 0) {
-          const defaultData = initializeDefaultStructure();
-          const updatedUser = { ...user, data: defaultData };
-          storage.saveUser(updatedUser);
+      // Attendre un peu pour s'assurer que tout est bien chargé
+      setTimeout(() => {
+        if (pendingChoice === 'cv') {
+          setShowCVUpload(true);
+        } else {
+          // Partir de zéro - initialiser avec structure par défaut
+          if (user.data.length === 0) {
+            const defaultData = initializeDefaultStructure();
+            const updatedUser = { ...user, data: defaultData };
+            storage.saveUser(updatedUser).then(saved => {
+              setUser(saved);
+              setShowDataEditor(true);
+            });
+          } else {
+            setShowDataEditor(true);
+          }
         }
-        setShowDataEditor(true);
-      }
-      setPendingChoice(null);
+        setPendingChoice(null);
+      }, 200);
     }
   }, [user, pendingChoice]);
 

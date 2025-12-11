@@ -1,13 +1,53 @@
 import { sql } from '@vercel/postgres';
 import type { VercelRequest, VercelResponse } from '@vercel/node';
 
+// Interface pour le fichier login.json
+interface LoginEntry {
+  id: string;
+  email: string;
+  password: string;
+  name: string;
+  createdAt: string;
+  passwordChangedAt: string;
+}
+
+// Fonction pour convertir User DB en LoginEntry
+function userToLoginEntry(user: any): LoginEntry {
+  return {
+    id: user.id,
+    email: user.email,
+    password: user.password,
+    name: user.name,
+    createdAt: user.created_at || user.createdAt,
+    passwordChangedAt: user.password_changed_at || user.passwordChangedAt || user.updated_at || user.updatedAt || user.created_at || user.createdAt,
+  };
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
   if (req.method === 'GET') {
     try {
-      const { id, email } = req.query;
+      const { id, email, exportJson } = req.query;
+      
+      // Endpoint pour exporter vers login.json
+      if (exportJson === 'true') {
+        const result = await sql`
+          SELECT 
+            id,
+            email,
+            password,
+            name,
+            created_at,
+            updated_at,
+            COALESCE(password_changed_at, updated_at, created_at) as password_changed_at
+          FROM users
+          ORDER BY created_at DESC
+        `;
+        const entries: LoginEntry[] = result.rows.map(userToLoginEntry);
+        return res.status(200).json(entries);
+      }
       
       if (id) {
         const result = await sql`
@@ -80,10 +120,20 @@ export default async function handler(
   if (req.method === 'POST') {
     try {
       const { id, email, password, name, baseLanguage, isAdmin, data } = req.body;
+      const now = new Date().toISOString();
       
+      // Vérifier si l'email existe déjà
+      const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
+      if (existing.rows.length > 0) {
+        return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+      }
+      
+      const userId = id || Date.now().toString();
+      
+      // Insérer dans la base de données avec password_changed_at
       const result = await sql`
         INSERT INTO users (id, email, password, name, base_language, is_admin, data, created_at, updated_at)
-        VALUES (${id}, ${email}, ${password}, ${name}, ${baseLanguage || 'fr'}, ${isAdmin || false}, ${JSON.stringify(data || [])}, NOW(), NOW())
+        VALUES (${userId}, ${email}, ${password}, ${name}, ${baseLanguage || 'fr'}, ${isAdmin || false}, ${JSON.stringify(data || [])}, ${now}, ${now})
         RETURNING 
           id,
           email,
@@ -100,6 +150,7 @@ export default async function handler(
       if (user && user.data) {
         user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
       }
+      
       return res.status(201).json(user);
     } catch (error: any) {
       console.error('POST users error:', error);
@@ -121,6 +172,9 @@ export default async function handler(
       if (updates.password) {
         fields.push('password');
         values.push(updates.password);
+        // Mettre à jour password_changed_at si le mot de passe change
+        fields.push('password_changed_at');
+        values.push('NOW()');
       }
       if (updates.name) {
         fields.push('name');
@@ -142,14 +196,16 @@ export default async function handler(
       fields.push('updated_at');
       values.push('NOW()');
       
-      const setClause = fields.map((field, idx) => 
-        `${field} = ${idx < values.length - 1 ? `$${idx + 1}` : 'NOW()'}`
-      ).join(', ');
-      
-      const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
-      values.push(id);
-      
-      await sql.query(query, values);
+      if (fields.length > 1) {
+        const setClause = fields.map((field, idx) => 
+          `${field} = ${idx < values.length - 1 ? `$${idx + 1}` : 'NOW()'}`
+        ).join(', ');
+        
+        const query = `UPDATE users SET ${setClause} WHERE id = $${values.length}`;
+        values.push(id);
+        
+        await sql.query(query, values);
+      }
       
       const result = await sql`
         SELECT 
@@ -180,13 +236,11 @@ export default async function handler(
       const { id, deleteAll } = req.query;
       
       if (deleteAll === 'true') {
-        // Supprimer tous les utilisateurs
         await sql`DELETE FROM users`;
         return res.status(200).json({ message: 'Tous les utilisateurs ont été supprimés', count: 0 });
       }
       
       if (id) {
-        // Supprimer un utilisateur spécifique
         await sql`DELETE FROM users WHERE id = ${id as string}`;
         return res.status(200).json({ message: 'Utilisateur supprimé', id });
       }
@@ -200,4 +254,3 @@ export default async function handler(
 
   return res.status(405).json({ error: 'Method not allowed' });
 }
-

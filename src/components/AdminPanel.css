@@ -27,6 +27,21 @@
   transition: all 0.3s;
 }
 
+.export-button {
+  background: #4ecdc4;
+  color: white;
+}
+
+.export-button:hover:not(:disabled) {
+  background: #26a69a;
+  transform: scale(1.02);
+}
+
+.export-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
 .delete-all-button {
   background: #ff6b6b;
   color: white;

@@ -11,7 +11,8 @@ CREATE TABLE IF NOT EXISTS users (
   admin_code VARCHAR(50),
   data JSONB DEFAULT '[]'::jsonb,
   created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
+  updated_at TIMESTAMP DEFAULT NOW(),
+  password_changed_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Table des formats de CV
