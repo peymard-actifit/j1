@@ -102,14 +102,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         name,
         baseLanguage: 'fr',
         isAdmin: false,
-        data: [],
+        data: [], // Initialiser avec un tableau vide
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
 
       const savedUser = await storage.saveUser(newUser);
+      
+      // S'assurer que savedUser a toutes les propriétés nécessaires
+      if (!savedUser) {
+        throw new Error('Échec de la création de l\'utilisateur');
+      }
+      
+      // S'assurer que data est toujours un tableau
+      if (!savedUser.data || !Array.isArray(savedUser.data)) {
+        savedUser.data = [];
+      }
+      
       // Attendre un peu pour s'assurer que l'utilisateur est bien sauvegardé
-      await new Promise(resolve => setTimeout(resolve, 100));
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
       setUser(savedUser);
       storage.setCurrentUser(savedUser);
       return savedUser;

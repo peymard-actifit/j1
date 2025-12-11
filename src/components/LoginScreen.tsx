@@ -63,6 +63,7 @@ export const LoginScreen = ({ onClose }: LoginScreenProps) => {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
+              autoComplete="username"
               required
             />
           </div>

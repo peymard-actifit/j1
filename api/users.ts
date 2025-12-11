@@ -147,41 +147,86 @@ export default async function handler(
   if (req.method === 'POST') {
     try {
       const { id, email, password, name, baseLanguage, isAdmin, data } = req.body;
+      
+      if (!email || !password || !name) {
+        return res.status(400).json({ error: 'Email, password et name sont requis' });
+      }
+      
       const now = new Date().toISOString();
       
       // Vérifier si l'email existe déjà
-      const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
-      if (existing.rows.length > 0) {
-        return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+      try {
+        const existing = await sql`SELECT id FROM users WHERE email = ${email}`;
+        if (existing.rows.length > 0) {
+          return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+        }
+      } catch (checkError) {
+        console.error('Error checking existing user:', checkError);
+        // Continuer même si la vérification échoue
       }
       
       const userId = id || Date.now().toString();
+      const userData = data || [];
       
-      // Insérer dans la base de données avec password_changed_at
-      const result = await sql`
-        INSERT INTO users (id, email, password, name, base_language, is_admin, data, created_at, updated_at)
-        VALUES (${userId}, ${email}, ${password}, ${name}, ${baseLanguage || 'fr'}, ${isAdmin || false}, ${JSON.stringify(data || [])}, ${now}, ${now})
-        RETURNING 
-          id,
-          email,
-          password,
-          name,
-          base_language as "baseLanguage",
-          is_admin as "isAdmin",
-          data,
-          created_at as "createdAt",
-          updated_at as "updatedAt"
-      `;
-      
-      const user = result.rows[0];
-      if (user && user.data) {
-        user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+      // Insérer dans la base de données
+      try {
+        const result = await sql`
+          INSERT INTO users (id, email, password, name, base_language, is_admin, data, created_at, updated_at, password_changed_at)
+          VALUES (${userId}, ${email}, ${password}, ${name}, ${baseLanguage || 'fr'}, ${isAdmin || false}, ${JSON.stringify(userData)}, ${now}, ${now}, ${now})
+          RETURNING 
+            id,
+            email,
+            password,
+            name,
+            base_language as "baseLanguage",
+            is_admin as "isAdmin",
+            data,
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+        `;
+        
+        const user = result.rows[0];
+        if (!user) {
+          throw new Error('Échec de la création de l\'utilisateur');
+        }
+        
+        // Parser le champ data si c'est une string
+        if (user.data) {
+          try {
+            user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+          } catch (parseError) {
+            console.error('Error parsing user data:', parseError);
+            user.data = [];
+          }
+        } else {
+          user.data = [];
+        }
+        
+        // S'assurer que toutes les propriétés sont présentes
+        const responseUser = {
+          id: user.id,
+          email: user.email,
+          password: user.password,
+          name: user.name,
+          baseLanguage: user.baseLanguage || 'fr',
+          isAdmin: user.isAdmin || false,
+          data: Array.isArray(user.data) ? user.data : [],
+          createdAt: user.createdAt || now,
+          updatedAt: user.updatedAt || now,
+        };
+        
+        return res.status(201).json(responseUser);
+      } catch (dbError: any) {
+        console.error('Database error during user creation:', dbError);
+        // Si l'erreur est due à une contrainte unique, retourner un message approprié
+        if (dbError.message && dbError.message.includes('unique')) {
+          return res.status(400).json({ error: 'Cet email est déjà utilisé' });
+        }
+        throw dbError;
       }
-      
-      return res.status(201).json(user);
     } catch (error: any) {
       console.error('POST users error:', error);
-      return res.status(500).json({ error: error.message });
+      return res.status(500).json({ error: error.message || 'Erreur lors de la création de l\'utilisateur' });
     }
   }
 

@@ -41,11 +41,13 @@ const AppContent = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user && user.data.length === 0) {
+    if (user && (!user.data || user.data.length === 0)) {
       // Initialiser la structure par défaut si l'utilisateur n'a pas de données
       const defaultData = initializeDefaultStructure();
       const updatedUser = { ...user, data: defaultData };
-      storage.saveUser(updatedUser);
+      storage.saveUser(updatedUser).catch(error => {
+        console.error('Error initializing default structure:', error);
+      });
     }
   }, [user]);
 
@@ -58,23 +60,30 @@ const AppContent = () => {
       setTimeout(() => {
         if (pendingChoice === 'cv') {
           setShowCVUpload(true);
+          setPendingChoice(null);
         } else {
           // Partir de zéro - initialiser avec structure par défaut
-          if (user.data.length === 0) {
+          if (!user.data || user.data.length === 0) {
             const defaultData = initializeDefaultStructure();
             const updatedUser = { ...user, data: defaultData };
             storage.saveUser(updatedUser).then(saved => {
               setUser(saved);
               setShowDataEditor(true);
+              setPendingChoice(null);
+            }).catch(error => {
+              console.error('Error saving default structure:', error);
+              // Afficher l'éditeur même en cas d'erreur
+              setShowDataEditor(true);
+              setPendingChoice(null);
             });
           } else {
             setShowDataEditor(true);
+            setPendingChoice(null);
           }
         }
-        setPendingChoice(null);
-      }, 200);
+      }, 300);
     }
-  }, [user, pendingChoice]);
+  }, [user, pendingChoice, setUser]);
 
   const handleWelcomeChoice = (hasCV: boolean) => {
     // Si l'utilisateur n'est pas connecté, demander de créer un compte
@@ -158,10 +167,12 @@ const AppContent = () => {
                 className="dashboard-button"
                 onClick={() => {
                   // Partir de zéro - initialiser avec structure par défaut
-                  if (user.data.length === 0) {
+                  if (!user.data || user.data.length === 0) {
                     const defaultData = initializeDefaultStructure();
                     const updatedUser = { ...user, data: defaultData };
-                    storage.saveUser(updatedUser);
+                    storage.saveUser(updatedUser).catch(error => {
+                      console.error('Error saving default structure:', error);
+                    });
                   }
                   setShowDataEditor(true);
                 }}
