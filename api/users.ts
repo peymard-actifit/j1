@@ -23,10 +23,93 @@ function userToLoginEntry(user: any): LoginEntry {
   };
 }
 
+// Fonction pour initialiser la base de données si nécessaire
+async function ensureDatabaseInitialized() {
+  try {
+    // Vérifier si la table users existe
+    const checkTable = await sql`
+      SELECT EXISTS (
+        SELECT FROM information_schema.tables 
+        WHERE table_schema = 'public' 
+        AND table_name = 'users'
+      );
+    `;
+    
+    const tableExists = checkTable.rows[0]?.exists;
+    
+    if (tableExists) {
+      return; // La base de données est déjà initialisée
+    }
+
+    // Initialiser la base de données
+    await sql`
+      CREATE TABLE IF NOT EXISTS users (
+        id VARCHAR(255) PRIMARY KEY,
+        email VARCHAR(255) UNIQUE NOT NULL,
+        password VARCHAR(255) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        base_language VARCHAR(10) DEFAULT 'fr',
+        is_admin BOOLEAN DEFAULT FALSE,
+        admin_code VARCHAR(50),
+        data JSONB DEFAULT '[]'::jsonb,
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW(),
+        password_changed_at TIMESTAMP DEFAULT NOW()
+      );
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS cv_formats (
+        id VARCHAR(255) PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        description TEXT,
+        metadata JSONB DEFAULT '{}'::jsonb,
+        structure JSONB DEFAULT '[]'::jsonb,
+        created_by VARCHAR(255),
+        created_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP DEFAULT NOW()
+      );
+    `;
+
+    await sql`
+      CREATE TABLE IF NOT EXISTS cv_generations (
+        id VARCHAR(255) PRIMARY KEY,
+        user_id VARCHAR(255) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        format_id VARCHAR(255) REFERENCES cv_formats(id) ON DELETE SET NULL,
+        field_mappings JSONB DEFAULT '{}'::jsonb,
+        pdf_url TEXT,
+        generated_at TIMESTAMP DEFAULT NOW()
+      );
+    `;
+
+    await sql`CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cv_formats_metadata ON cv_formats USING GIN(metadata);`;
+    await sql`CREATE INDEX IF NOT EXISTS idx_cv_generations_user_id ON cv_generations(user_id);`;
+    
+    console.log('Database initialized automatically');
+  } catch (error: any) {
+    console.error('Error initializing database:', error);
+    // Ne pas bloquer si l'initialisation échoue, on laissera l'erreur remonter
+    throw error;
+  }
+}
+
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
 ) {
+  // Initialiser la base de données si nécessaire avant toute opération
+  try {
+    await ensureDatabaseInitialized();
+  } catch (initError: any) {
+    console.error('Failed to initialize database:', initError);
+    // Retourner une erreur explicite si l'initialisation échoue
+    return res.status(500).json({ 
+      error: 'Database initialization failed',
+      details: initError.message 
+    });
+  }
+
   if (req.method === 'GET') {
     try {
       const { id, email, exportJson } = req.query;
