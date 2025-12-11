@@ -29,12 +29,12 @@ export default async function handler(
 
     // Convertir le code langue au format DeepL
     const targetLangCode = convertToDeepLLangCode(targetLang);
-    const sourceLangCode = sourceLang ? convertToDeepLLangCode(sourceLang) : undefined;
+    const sourceLangCode = sourceLang ? convertToDeepLLangCode(sourceLang) : null;
 
     // Traduire tous les textes en une seule requête
     const results = await translator.translateText(
       texts,
-      sourceLangCode || null,
+      sourceLangCode,
       targetLangCode
     );
 
@@ -43,12 +43,14 @@ export default async function handler(
       ? results.map(r => r.text)
       : [results.text];
 
+    const detectedLang = Array.isArray(results) && results.length > 0
+      ? results[0].detectedSourceLang
+      : (Array.isArray(results) ? undefined : results.detectedSourceLang);
+
     return res.status(200).json({
       success: true,
       texts: translatedTexts,
-      detectedSourceLang: Array.isArray(results) 
-        ? results[0]?.detectedSourceLang 
-        : results.detectedSourceLang,
+      detectedSourceLang: detectedLang,
     });
   } catch (error: any) {
     console.error('Batch translation error:', error);
@@ -60,7 +62,7 @@ export default async function handler(
 }
 
 // Fonction pour convertir les codes de langue au format DeepL
-function convertToDeepLLangCode(lang: string): deepl.TargetLanguageCode | deepl.SourceLanguageCode {
+function convertToDeepLLangCode(lang: string): deepl.TargetLanguageCode {
   const langMap: Record<string, deepl.TargetLanguageCode | deepl.SourceLanguageCode> = {
     'fr': 'fr',
     'en': 'en-US',

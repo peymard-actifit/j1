@@ -14,7 +14,7 @@ export default async function handler(
   }
 
   try {
-    const { fileContent, fileName, fileType } = req.body;
+    const { fileContent } = req.body;
 
     if (!fileContent) {
       return res.status(400).json({ error: 'File content is required' });

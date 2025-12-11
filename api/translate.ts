@@ -29,7 +29,7 @@ export default async function handler(
 
     // Convertir le code langue au format DeepL
     const targetLangCode = convertToDeepLLangCode(targetLang);
-    const sourceLangCode = sourceLang ? convertToDeepLLangCode(sourceLang) : undefined;
+    const sourceLangCode = sourceLang ? convertToDeepLLangCode(sourceLang) : null;
 
     const result = await translator.translateText(
       text,
@@ -37,10 +37,14 @@ export default async function handler(
       targetLangCode
     );
 
+    // Gérer le cas où result est un tableau ou un objet unique
+    const translatedText = Array.isArray(result) ? result[0].text : result.text;
+    const detectedLang = Array.isArray(result) ? result[0].detectedSourceLang : result.detectedSourceLang;
+
     return res.status(200).json({
       success: true,
-      text: result.text,
-      detectedSourceLang: result.detectedSourceLang,
+      text: translatedText,
+      detectedSourceLang: detectedLang,
     });
   } catch (error: any) {
     console.error('Translation error:', error);
@@ -52,7 +56,7 @@ export default async function handler(
 }
 
 // Fonction pour convertir les codes de langue au format DeepL
-function convertToDeepLLangCode(lang: string): deepl.TargetLanguageCode | deepl.SourceLanguageCode {
+function convertToDeepLLangCode(lang: string): deepl.TargetLanguageCode {
   const langMap: Record<string, deepl.TargetLanguageCode | deepl.SourceLanguageCode> = {
     'fr': 'fr',
     'en': 'en-US',

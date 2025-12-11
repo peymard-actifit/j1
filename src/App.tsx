@@ -13,13 +13,27 @@ import './App.css';
 
 const AppContent = () => {
   const { user } = useAuth();
-  const [showWelcome, setShowWelcome] = useState(!user); // Afficher directement pour les non-connectés
+  const [showWelcome, setShowWelcome] = useState(false);
   const [showCVUpload, setShowCVUpload] = useState(false);
   const [showDataEditor, setShowDataEditor] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [currentModule, setCurrentModule] = useState<string | null>(null);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+
+  // Initialiser showWelcome selon l'état de l'utilisateur
+  useEffect(() => {
+    if (user === null) {
+      // Utilisateur non connecté - afficher le welcome
+      setShowWelcome(true);
+      setIsLoading(false);
+    } else if (user) {
+      // Utilisateur connecté - masquer le welcome
+      setShowWelcome(false);
+      setIsLoading(false);
+    }
+  }, [user]);
 
   useEffect(() => {
     if (user && user.data.length === 0) {
@@ -51,13 +65,14 @@ const AppContent = () => {
   }, [user, pendingChoice]);
 
   const handleWelcomeChoice = (hasCV: boolean) => {
-    setShowWelcome(false);
     // Si l'utilisateur n'est pas connecté, demander de créer un compte
     if (!user) {
       setPendingChoice(hasCV ? 'cv' : 'zero');
+      setShowWelcome(false);
       setShowLogin(true);
     } else {
       // Utilisateur connecté, procéder directement
+      setShowWelcome(false);
       if (hasCV) {
         setShowCVUpload(true);
       } else {
@@ -78,9 +93,24 @@ const AppContent = () => {
     setShowDataEditor(true);
   };
 
+  // Afficher un loader pendant le chargement initial
+  if (isLoading) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <p>Chargement...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Afficher l'écran de login si demandé
   if (showLogin && !user) {
-    return <LoginScreen onClose={() => setShowLogin(false)} />;
+    return <LoginScreen onClose={() => {
+      setShowLogin(false);
+      setShowWelcome(true); // Revenir au welcome si on ferme le login
+      setPendingChoice(null);
+    }} />;
   }
 
   // Afficher l'écran de bienvenue pour les non-connectés
@@ -88,9 +118,9 @@ const AppContent = () => {
     return <WelcomeScreen onChoice={handleWelcomeChoice} />;
   }
 
-  // Si l'utilisateur est connecté, masquer le welcome
-  if (user && showWelcome) {
-    setShowWelcome(false);
+  // Si l'utilisateur n'est pas connecté, ne rien afficher d'autre
+  if (!user) {
+    return null;
   }
 
   return (

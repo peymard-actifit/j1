@@ -14,7 +14,7 @@ export default async function handler(
   }
 
   try {
-    const { type, input, userId, userData } = req.body;
+    const { type, input, userData } = req.body;
 
     if (!type || !input) {
       return res.status(400).json({ error: 'Type and input are required' });

@@ -4,8 +4,6 @@ import { User, UserDataField, CVFormat } from '../types/database';
 import { api } from './api';
 
 const STORAGE_KEYS = {
-  USERS: 'j1_users',
-  CV_FORMATS: 'j1_cv_formats',
   CURRENT_USER: 'j1_current_user',
 };
 
@@ -13,7 +11,9 @@ export const storage = {
   // Users
   async getUsers(): Promise<User[]> {
     try {
-      return await api.getUser('') || [];
+      // Pour récupérer tous les utilisateurs, on peut faire une requête sans ID
+      // Mais pour l'instant, on retourne un tableau vide car l'API ne supporte pas encore cette fonctionnalité
+      return [];
     } catch {
       return [];
     }
@@ -21,7 +21,8 @@ export const storage = {
 
   async getUser(id: string): Promise<User | null> {
     try {
-      return await api.getUser(id);
+      const user = await api.getUser(id);
+      return user || null;
     } catch {
       return null;
     }
@@ -29,7 +30,8 @@ export const storage = {
 
   async getUserByEmail(email: string): Promise<User | null> {
     try {
-      return await api.getUserByEmail(email);
+      const user = await api.getUserByEmail(email);
+      return user || null;
     } catch {
       return null;
     }
@@ -117,9 +119,22 @@ export const storage = {
 };
 
 // Initialisation de la structure de base de données par défaut
+// Basée sur le template CV Long JustOne
 export const initializeDefaultStructure = (): UserDataField[] => {
   const now = new Date().toISOString();
   return [
+    // Informations personnelles
+    {
+      id: 'photo',
+      name: 'Photo',
+      tag: 'photo',
+      type: 'image',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
     {
       id: 'name',
       name: 'Nom',
@@ -187,8 +202,42 @@ export const initializeDefaultStructure = (): UserDataField[] => {
       updatedAt: now,
     },
     {
+      id: 'nationality',
+      name: 'Nationalité',
+      tag: 'nationality',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'linkedin',
+      name: 'LinkedIn',
+      tag: 'linkedin',
+      type: 'url',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'website',
+      name: 'Site web / Portfolio',
+      tag: 'website',
+      type: 'url',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Profil / Résumé
+    {
       id: 'summary',
-      name: 'Résumé professionnel',
+      name: 'Résumé professionnel / Profil',
       tag: 'summary',
       type: 'text',
       baseLanguage: 'fr',
@@ -198,8 +247,20 @@ export const initializeDefaultStructure = (): UserDataField[] => {
       updatedAt: now,
     },
     {
+      id: 'objective',
+      name: 'Objectif professionnel',
+      tag: 'objective',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Expériences professionnelles
+    {
       id: 'experience',
-      name: 'Expériences',
+      name: 'Expériences professionnelles',
       tag: 'experience',
       type: 'text',
       baseLanguage: 'fr',
@@ -209,8 +270,20 @@ export const initializeDefaultStructure = (): UserDataField[] => {
       updatedAt: now,
     },
     {
+      id: 'current_position',
+      name: 'Poste actuel',
+      tag: 'current_position',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Formations
+    {
       id: 'education',
-      name: 'Formation',
+      name: 'Formations',
       tag: 'education',
       type: 'text',
       baseLanguage: 'fr',
@@ -220,9 +293,160 @@ export const initializeDefaultStructure = (): UserDataField[] => {
       updatedAt: now,
     },
     {
+      id: 'degrees',
+      name: 'Diplômes',
+      tag: 'degrees',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Compétences
+    {
       id: 'skills',
-      name: 'Compétences',
+      name: 'Compétences techniques',
       tag: 'skills',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'soft_skills',
+      name: 'Compétences comportementales / Soft skills',
+      tag: 'soft_skills',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'technical_skills',
+      name: 'Compétences techniques détaillées',
+      tag: 'technical_skills',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'tools',
+      name: 'Outils et technologies',
+      tag: 'tools',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Langues
+    {
+      id: 'languages',
+      name: 'Langues',
+      tag: 'languages',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Certifications
+    {
+      id: 'certifications',
+      name: 'Certifications',
+      tag: 'certifications',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Projets
+    {
+      id: 'projects',
+      name: 'Projets',
+      tag: 'projects',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Publications
+    {
+      id: 'publications',
+      name: 'Publications',
+      tag: 'publications',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Références
+    {
+      id: 'references',
+      name: 'Références',
+      tag: 'references',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Centres d'intérêt
+    {
+      id: 'interests',
+      name: 'Centres d\'intérêt',
+      tag: 'interests',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    // Informations complémentaires
+    {
+      id: 'additional_info',
+      name: 'Informations complémentaires',
+      tag: 'additional_info',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'availability',
+      name: 'Disponibilité',
+      tag: 'availability',
+      type: 'text',
+      baseLanguage: 'fr',
+      languageVersions: [],
+      aiVersions: [],
+      createdAt: now,
+      updatedAt: now,
+    },
+    {
+      id: 'mobility',
+      name: 'Mobilité',
+      tag: 'mobility',
       type: 'text',
       baseLanguage: 'fr',
       languageVersions: [],
@@ -232,4 +456,3 @@ export const initializeDefaultStructure = (): UserDataField[] => {
     },
   ];
 };
-
