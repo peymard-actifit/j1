@@ -1,0 +1,100 @@
+// Client API pour communiquer avec les fonctions serverless Vercel
+
+const API_BASE = import.meta.env.VITE_API_BASE || '/api';
+
+export const api = {
+  // Users
+  async getUser(id: string) {
+    const res = await fetch(`${API_BASE}/users?id=${id}`);
+    return res.json();
+  },
+
+  async getUserByEmail(email: string) {
+    const res = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
+    return res.json();
+  },
+
+  async createUser(user: any) {
+    const res = await fetch(`${API_BASE}/users`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(user),
+    });
+    return res.json();
+  },
+
+  async updateUser(id: string, updates: any) {
+    const res = await fetch(`${API_BASE}/users`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    return res.json();
+  },
+
+  // CV Formats
+  async getCVFormats(filters?: {
+    country?: string;
+    targetRecipient?: string;
+    search?: string;
+  }) {
+    const params = new URLSearchParams();
+    if (filters?.country) params.append('country', filters.country);
+    if (filters?.targetRecipient) params.append('targetRecipient', filters.targetRecipient);
+    if (filters?.search) params.append('search', filters.search);
+
+    const res = await fetch(`${API_BASE}/cv-formats?${params.toString()}`);
+    return res.json();
+  },
+
+  async getCVFormat(id: string) {
+    const res = await fetch(`${API_BASE}/cv-formats?id=${id}`);
+    const formats = await res.json();
+    return Array.isArray(formats) ? formats[0] : formats;
+  },
+
+  async createCVFormat(format: any) {
+    const res = await fetch(`${API_BASE}/cv-formats`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(format),
+    });
+    return res.json();
+  },
+
+  async updateCVFormat(id: string, updates: any) {
+    const res = await fetch(`${API_BASE}/cv-formats`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, ...updates }),
+    });
+    return res.json();
+  },
+
+  async deleteCVFormat(id: string) {
+    const res = await fetch(`${API_BASE}/cv-formats?id=${id}`, {
+      method: 'DELETE',
+    });
+    return res.json();
+  },
+
+  // AI
+  async analyzeCV(fileContent: string, fileName: string, fileType: string) {
+    const res = await fetch(`${API_BASE}/ai/analyze-cv`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileContent, fileName, fileType }),
+    });
+    return res.json();
+  },
+
+  async callAI(type: string, input: any, userId: string, userData?: any) {
+    const res = await fetch(`${API_BASE}/ai/chat`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type, input, userId, userData }),
+    });
+    return res.json();
+  },
+};
+

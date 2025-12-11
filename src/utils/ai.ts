@@ -1,34 +1,54 @@
-// Utilitaires pour l'API OpenAI
+// Utilitaires pour l'API OpenAI via les fonctions serverless Vercel
 
-const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY || '';
+import { api } from './api';
 
-export const analyzeCVFile = async (_file: File): Promise<any> => {
-  // Cette fonction analysera le fichier CV avec OpenAI
-  // Pour l'instant, retourne une structure de base
-  // TODO: Implémenter l'appel réel à l'API OpenAI
+export const analyzeCVFile = async (file: File): Promise<any> => {
+  // Lire le contenu du fichier
+  const fileContent = await readFileContent(file);
   
-  if (!OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY non configurée');
+  // Appeler l'API serverless pour l'analyse
+  const result = await api.analyzeCV(
+    fileContent,
+    file.name,
+    file.type
+  );
+
+  if (!result.success) {
+    throw new Error(result.error || 'Erreur lors de l\'analyse du CV');
   }
 
-  // Simulation pour le moment
-  return {
-    name: 'John Doe',
-    email: 'john.doe@example.com',
-    phone: '+33 6 12 34 56 78',
-    experience: [],
-    education: [],
-    skills: [],
-  };
+  return result.data;
 };
 
-export const callAI = async (_request: any): Promise<any> => {
-  if (!OPENAI_API_KEY) {
-    throw new Error('OPENAI_API_KEY non configurée');
+const readFileContent = async (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      resolve(e.target?.result as string);
+    };
+    reader.onerror = reject;
+    
+    if (file.type === 'application/pdf') {
+      // Pour les PDF, on lit en base64
+      reader.readAsDataURL(file);
+    } else {
+      // Pour les autres formats, on lit en texte
+      reader.readAsText(file);
+    }
+  });
+};
+
+export const callAI = async (
+  type: string,
+  input: any,
+  userId: string,
+  userData?: any
+): Promise<any> => {
+  const result = await api.callAI(type, input, userId, userData);
+
+  if (!result.success) {
+    throw new Error(result.error || 'Erreur lors de l\'appel IA');
   }
 
-  // TODO: Implémenter les différents types de requêtes IA
-  // Pour l'instant, retourne une réponse vide
-  return { success: true, data: null };
+  return result.data;
 };
-

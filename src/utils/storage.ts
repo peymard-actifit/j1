@@ -1,6 +1,7 @@
-// Utilitaires pour le stockage local (sera remplacé par une vraie BDD plus tard)
+// Utilitaires pour le stockage - utilise maintenant l'API Vercel
 
 import { User, UserDataField, CVFormat } from '../types/database';
+import { api } from './api';
 
 const STORAGE_KEYS = {
   USERS: 'j1_users',
@@ -10,41 +11,56 @@ const STORAGE_KEYS = {
 
 export const storage = {
   // Users
-  getUsers: (): User[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.USERS);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveUsers: (users: User[]): void => {
-    localStorage.setItem(STORAGE_KEYS.USERS, JSON.stringify(users));
-  },
-
-  getUser: (id: string): User | null => {
-    const users = storage.getUsers();
-    return users.find(u => u.id === id) || null;
-  },
-
-  getUserByEmail: (email: string): User | null => {
-    const users = storage.getUsers();
-    return users.find(u => u.email === email) || null;
-  },
-
-  saveUser: (user: User): void => {
-    const users = storage.getUsers();
-    const index = users.findIndex(u => u.id === user.id);
-    if (index >= 0) {
-      users[index] = user;
-    } else {
-      users.push(user);
+  async getUsers(): Promise<User[]> {
+    try {
+      return await api.getUser('') || [];
+    } catch {
+      return [];
     }
-    storage.saveUsers(users);
   },
 
-  // Current user session
+  async getUser(id: string): Promise<User | null> {
+    try {
+      return await api.getUser(id);
+    } catch {
+      return null;
+    }
+  },
+
+  async getUserByEmail(email: string): Promise<User | null> {
+    try {
+      return await api.getUserByEmail(email);
+    } catch {
+      return null;
+    }
+  },
+
+  async saveUser(user: User): Promise<User> {
+    try {
+      // Vérifier si l'utilisateur existe
+      const existing = await api.getUser(user.id);
+      if (existing) {
+        return await api.updateUser(user.id, user);
+      } else {
+        return await api.createUser(user);
+      }
+    } catch (error) {
+      console.error('Error saving user:', error);
+      throw error;
+    }
+  },
+
+  // Current user session (toujours en localStorage pour la session)
   getCurrentUser: (): User | null => {
     const userId = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
     if (!userId) return null;
-    return storage.getUser(userId);
+    // On retourne null car on doit faire un appel async pour récupérer l'utilisateur
+    // Cette fonction sera utilisée uniquement pour récupérer l'ID
+    return null;
+  },
+
+  getCurrentUserId: (): string | null => {
+    return localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
   },
 
   setCurrentUser: (user: User | null): void => {
@@ -56,29 +72,47 @@ export const storage = {
   },
 
   // CV Formats
-  getCVFormats: (): CVFormat[] => {
-    const data = localStorage.getItem(STORAGE_KEYS.CV_FORMATS);
-    return data ? JSON.parse(data) : [];
-  },
-
-  saveCVFormats: (formats: CVFormat[]): void => {
-    localStorage.setItem(STORAGE_KEYS.CV_FORMATS, JSON.stringify(formats));
-  },
-
-  getCVFormat: (id: string): CVFormat | null => {
-    const formats = storage.getCVFormats();
-    return formats.find(f => f.id === id) || null;
-  },
-
-  saveCVFormat: (format: CVFormat): void => {
-    const formats = storage.getCVFormats();
-    const index = formats.findIndex(f => f.id === format.id);
-    if (index >= 0) {
-      formats[index] = format;
-    } else {
-      formats.push(format);
+  async getCVFormats(filters?: {
+    country?: string;
+    targetRecipient?: string;
+    search?: string;
+  }): Promise<CVFormat[]> {
+    try {
+      return await api.getCVFormats(filters) || [];
+    } catch {
+      return [];
     }
-    storage.saveCVFormats(formats);
+  },
+
+  async getCVFormat(id: string): Promise<CVFormat | null> {
+    try {
+      return await api.getCVFormat(id);
+    } catch {
+      return null;
+    }
+  },
+
+  async saveCVFormat(format: CVFormat): Promise<CVFormat> {
+    try {
+      const existing = await api.getCVFormat(format.id);
+      if (existing) {
+        return await api.updateCVFormat(format.id, format);
+      } else {
+        return await api.createCVFormat(format);
+      }
+    } catch (error) {
+      console.error('Error saving CV format:', error);
+      throw error;
+    }
+  },
+
+  async deleteCVFormat(id: string): Promise<void> {
+    try {
+      await api.deleteCVFormat(id);
+    } catch (error) {
+      console.error('Error deleting CV format:', error);
+      throw error;
+    }
   },
 };
 

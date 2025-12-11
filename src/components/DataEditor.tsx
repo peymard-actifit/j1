@@ -5,7 +5,7 @@ import { storage } from '../utils/storage';
 import './DataEditor.css';
 
 export const DataEditor = ({ onClose }: { onClose: () => void }) => {
-  const { user } = useAuth();
+  const { user, setUser } = useAuth();
   const [fields, setFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
   const [showAddField, setShowAddField] = useState(false);
@@ -33,12 +33,18 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     setShowAddField(false);
   };
 
-  const handleSaveField = (field: UserDataField) => {
+  const handleSaveField = async (field: UserDataField) => {
     const updated = fields.map(f => f.id === field.id ? field : f);
     setFields(updated);
-    if (user) {
-      const updatedUser = { ...user, data: updated };
-      storage.saveUser(updatedUser);
+    if (user && setUser) {
+      try {
+        const updatedUser = { ...user, data: updated };
+        const savedUser = await storage.saveUser(updatedUser);
+        setUser(savedUser);
+      } catch (error) {
+        console.error('Error saving field:', error);
+        alert('Erreur lors de la sauvegarde');
+      }
     }
   };
 
