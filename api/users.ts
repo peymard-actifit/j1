@@ -11,21 +11,68 @@ export default async function handler(
       
       if (id) {
         const result = await sql`
-          SELECT * FROM users WHERE id = ${id as string}
+          SELECT 
+            id,
+            email,
+            password,
+            name,
+            base_language as "baseLanguage",
+            is_admin as "isAdmin",
+            data,
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM users WHERE id = ${id as string}
         `;
-        return res.status(200).json(result.rows[0] || null);
+        const user = result.rows[0];
+        if (user && user.data) {
+          user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        }
+        return res.status(200).json(user || null);
       }
       
       if (email) {
         const result = await sql`
-          SELECT * FROM users WHERE email = ${email as string}
+          SELECT 
+            id,
+            email,
+            password,
+            name,
+            base_language as "baseLanguage",
+            is_admin as "isAdmin",
+            data,
+            created_at as "createdAt",
+            updated_at as "updatedAt"
+          FROM users WHERE email = ${email as string}
         `;
-        return res.status(200).json(result.rows[0] || null);
+        const user = result.rows[0];
+        if (user && user.data) {
+          user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+        }
+        return res.status(200).json(user || null);
       }
       
-      const result = await sql`SELECT * FROM users`;
-      return res.status(200).json(result.rows);
+      const result = await sql`
+        SELECT 
+          id,
+          email,
+          password,
+          name,
+          base_language as "baseLanguage",
+          is_admin as "isAdmin",
+          data,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM users
+      `;
+      const users = result.rows.map(user => {
+        if (user.data && typeof user.data === 'string') {
+          user.data = JSON.parse(user.data);
+        }
+        return user;
+      });
+      return res.status(200).json(users);
     } catch (error: any) {
+      console.error('GET users error:', error);
       return res.status(500).json({ error: error.message });
     }
   }
@@ -37,11 +84,25 @@ export default async function handler(
       const result = await sql`
         INSERT INTO users (id, email, password, name, base_language, is_admin, data, created_at, updated_at)
         VALUES (${id}, ${email}, ${password}, ${name}, ${baseLanguage || 'fr'}, ${isAdmin || false}, ${JSON.stringify(data || [])}, NOW(), NOW())
-        RETURNING *
+        RETURNING 
+          id,
+          email,
+          password,
+          name,
+          base_language as "baseLanguage",
+          is_admin as "isAdmin",
+          data,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
       `;
       
-      return res.status(201).json(result.rows[0]);
+      const user = result.rows[0];
+      if (user && user.data) {
+        user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+      }
+      return res.status(201).json(user);
     } catch (error: any) {
+      console.error('POST users error:', error);
       return res.status(500).json({ error: error.message });
     }
   }
@@ -90,8 +151,24 @@ export default async function handler(
       
       await sql.query(query, values);
       
-      const result = await sql`SELECT * FROM users WHERE id = ${id}`;
-      return res.status(200).json(result.rows[0]);
+      const result = await sql`
+        SELECT 
+          id,
+          email,
+          password,
+          name,
+          base_language as "baseLanguage",
+          is_admin as "isAdmin",
+          data,
+          created_at as "createdAt",
+          updated_at as "updatedAt"
+        FROM users WHERE id = ${id}
+      `;
+      const user = result.rows[0];
+      if (user && user.data) {
+        user.data = typeof user.data === 'string' ? JSON.parse(user.data) : user.data;
+      }
+      return res.status(200).json(user);
     } catch (error: any) {
       return res.status(500).json({ error: error.message });
     }

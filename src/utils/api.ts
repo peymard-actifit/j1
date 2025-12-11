@@ -5,13 +5,31 @@ const API_BASE = import.meta.env.VITE_API_BASE || '/api';
 export const api = {
   // Users
   async getUser(id: string) {
-    const res = await fetch(`${API_BASE}/users?id=${id}`);
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/users?id=${id}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching user:', error);
+      return null;
+    }
   },
 
   async getUserByEmail(email: string) {
-    const res = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
-    return res.json();
+    try {
+      const res = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
+      if (!res.ok) {
+        throw new Error(`HTTP error! status: ${res.status}`);
+      }
+      const data = await res.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching user by email:', error);
+      return null;
+    }
   },
 
   async createUser(user: any) {

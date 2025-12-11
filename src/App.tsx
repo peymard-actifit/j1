@@ -24,15 +24,20 @@ const AppContent = () => {
 
   // Initialiser showWelcome selon l'état de l'utilisateur
   useEffect(() => {
-    if (user === null) {
-      // Utilisateur non connecté - afficher le welcome
-      setShowWelcome(true);
-      setIsLoading(false);
-    } else if (user) {
-      // Utilisateur connecté - masquer le welcome
-      setShowWelcome(false);
-      setIsLoading(false);
-    }
+    // Attendre un peu pour que l'auth se charge
+    const timer = setTimeout(() => {
+      if (user === null || user === undefined) {
+        // Utilisateur non connecté - afficher le welcome
+        setShowWelcome(true);
+        setIsLoading(false);
+      } else if (user) {
+        // Utilisateur connecté - masquer le welcome
+        setShowWelcome(false);
+        setIsLoading(false);
+      }
+    }, 100);
+    
+    return () => clearTimeout(timer);
   }, [user]);
 
   useEffect(() => {
