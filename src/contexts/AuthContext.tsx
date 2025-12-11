@@ -44,40 +44,48 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
+      console.log('Attempting login for email:', email);
       const foundUser = await storage.getUserByEmail(email);
+      
       if (!foundUser) {
-        console.log('User not found:', email);
+        console.log('User not found in database:', email);
         return false;
       }
       
-      // Comparaison simple du mot de passe (pas de hash pour l'instant)
-      // En développement, on accepte le mot de passe ou on le met à jour si différent
-      if (foundUser.password !== password) {
-        console.log('Password mismatch for user:', email);
-        // En mode développement, on met à jour le mot de passe avec celui fourni
+      console.log('User found:', foundUser.email, 'Password in DB:', foundUser.password ? '***' : 'undefined');
+      console.log('Password provided:', password ? '***' : 'undefined');
+      
+      // En mode développement, on accepte toujours la connexion si l'utilisateur existe
+      // et on met à jour le mot de passe si différent
+      if (!foundUser.password || foundUser.password !== password) {
+        console.log('Password mismatch or missing. Updating password in development mode...');
         try {
           const updatedUser = await storage.saveUser({
             ...foundUser,
             password: password,
             updatedAt: new Date().toISOString(),
           });
+          console.log('Password updated successfully');
           setUser(updatedUser);
           storage.setCurrentUser(updatedUser);
           return true;
-        } catch (updateError) {
+        } catch (updateError: any) {
           console.error('Error updating password:', updateError);
-          // Si la mise à jour échoue, on accepte quand même la connexion en développement
+          // En mode développement, on accepte quand même la connexion même si la mise à jour échoue
+          console.log('Accepting login anyway in development mode');
           setUser(foundUser);
           storage.setCurrentUser(foundUser);
           return true;
         }
       }
       
+      console.log('Password matches, logging in...');
       setUser(foundUser);
       storage.setCurrentUser(foundUser);
       return true;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Login error:', error);
+      console.error('Error details:', error.message, error.stack);
       return false;
     }
   };

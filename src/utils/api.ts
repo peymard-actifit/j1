@@ -22,12 +22,15 @@ export const api = {
     try {
       const res = await fetch(`${API_BASE}/users?email=${encodeURIComponent(email)}`);
       if (!res.ok) {
-        throw new Error(`HTTP error! status: ${res.status}`);
+        console.error(`HTTP error fetching user by email! status: ${res.status}`);
+        return null;
       }
       const data = await res.json();
+      console.log('API returned user data:', data ? { id: data.id, email: data.email, hasPassword: !!data.password } : 'null');
       return data;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching user by email:', error);
+      console.error('Error details:', error.message);
       return null;
     }
   },

@@ -20,19 +20,24 @@ export const LoginScreen = ({ onClose }: LoginScreenProps) => {
 
     try {
       if (isLogin) {
+        console.log('Login attempt:', { email, hasPassword: !!password });
         const success = await login(email, password);
+        console.log('Login result:', success);
         if (!success) {
-          setError('Email ou mot de passe incorrect');
+          setError('Email ou mot de passe incorrect. Vérifiez vos identifiants ou créez un nouveau compte.');
         } else if (onClose) {
           onClose();
         }
       } else {
+        console.log('Registration attempt:', { email, name, hasPassword: !!password });
         await register(email, password, name);
+        console.log('Registration successful');
         if (onClose) {
           onClose();
         }
       }
     } catch (err: any) {
+      console.error('Login/Register error:', err);
       setError(err.message || 'Une erreur est survenue');
     }
   };
