@@ -220,7 +220,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               📥 Exporter JSON
             </button>
             <button onClick={() => setShowTranslateModal(true)} className="translate-button">
-              🌐 Traduire tous
+              🌐 Traduire
             </button>
             <button onClick={onClose} className="close-button">
               ✕
@@ -415,6 +415,15 @@ const FieldEditor = ({
   const [newLanguageVersion2, setNewLanguageVersion2] = useState('');
   const [newLanguageVersion3, setNewLanguageVersion3] = useState('');
 
+  // Mettre à jour les états quand le champ change
+  useEffect(() => {
+    setName(field.name);
+    setTag(field.tag);
+    setVersion1Value(field.aiVersions.find(v => v.version === 1)?.value || '');
+    setVersion2Value(field.aiVersions.find(v => v.version === 2)?.value || '');
+    setVersion3Value(field.aiVersions.find(v => v.version === 3)?.value || '');
+  }, [field.id]);
+
   const handleSave = () => {
     // Mettre à jour les 3 versions dans aiVersions
     const updatedAiVersions = [...(field.aiVersions || [])];
@@ -472,6 +481,11 @@ const FieldEditor = ({
 
   return (
     <div className="field-editor-content">
+      <div className="field-editor-header-fixed">
+        <button onClick={handleSave} className="save-button">
+          Enregistrer
+        </button>
+      </div>
       <div className="field-editor-form">
         <div className="form-group">
           <label>Nom du champ</label>
@@ -489,36 +503,38 @@ const FieldEditor = ({
             onChange={(e) => setTag(e.target.value)}
           />
         </div>
-        <div className="form-group">
-          <label>Version 1 ({field.baseLanguage})</label>
-          <textarea
-            value={version1Value}
-            onChange={(e) => setVersion1Value(e.target.value)}
-            rows={3}
-            placeholder="Première version du texte"
-          />
+        <div className="form-group versions-row">
+          <label>Versions ({field.baseLanguage})</label>
+          <div className="versions-container">
+            <div className="version-input">
+              <label className="version-label">Version 1</label>
+              <textarea
+                value={version1Value}
+                onChange={(e) => setVersion1Value(e.target.value)}
+                rows={4}
+                placeholder="Première version"
+              />
+            </div>
+            <div className="version-input">
+              <label className="version-label">Version 2</label>
+              <textarea
+                value={version2Value}
+                onChange={(e) => setVersion2Value(e.target.value)}
+                rows={4}
+                placeholder="Deuxième version"
+              />
+            </div>
+            <div className="version-input">
+              <label className="version-label">Version 3</label>
+              <textarea
+                value={version3Value}
+                onChange={(e) => setVersion3Value(e.target.value)}
+                rows={4}
+                placeholder="Troisième version"
+              />
+            </div>
+          </div>
         </div>
-        <div className="form-group">
-          <label>Version 2 ({field.baseLanguage})</label>
-          <textarea
-            value={version2Value}
-            onChange={(e) => setVersion2Value(e.target.value)}
-            rows={3}
-            placeholder="Deuxième version du texte"
-          />
-        </div>
-        <div className="form-group">
-          <label>Version 3 ({field.baseLanguage})</label>
-          <textarea
-            value={version3Value}
-            onChange={(e) => setVersion3Value(e.target.value)}
-            rows={3}
-            placeholder="Troisième version du texte"
-          />
-        </div>
-        <button onClick={handleSave} className="save-button">
-          Enregistrer
-        </button>
       </div>
 
       <div className="language-versions">
@@ -532,20 +548,20 @@ const FieldEditor = ({
             return (
               <div key={language} className="language-version-group">
                 <h5 className="language-group-header">{language.toUpperCase()}</h5>
-                <div className="language-version-inputs">
+                <div className="language-versions-row">
                   {[1, 2, 3].map(version => {
                     const versionData = versions.find(v => v.version === version);
                     return (
-                      <div key={version} className="language-version-input">
-                        <label>Version {version}</label>
+                      <div key={version} className="language-version-input-inline">
+                        <label className="version-label">Version {version}</label>
                         <textarea
                           value={versionData?.value || ''}
                           onChange={(e) => {
                             const updatedField = addTranslationToField(field, language, e.target.value, version);
                             onSave(updatedField);
                           }}
-                          rows={2}
-                          placeholder={`Version ${version} en ${language}`}
+                          rows={4}
+                          placeholder={`Version ${version}`}
                         />
                       </div>
                     );
@@ -601,32 +617,32 @@ const FieldEditor = ({
               🔄 Traduire automatiquement
             </button>
           </div>
-          <div className="language-version-inputs">
-            <div className="language-version-input">
-              <label>Version 1</label>
+          <div className="language-versions-row">
+            <div className="language-version-input-inline">
+              <label className="version-label">Version 1</label>
               <textarea
-                placeholder="Version 1 traduite"
+                placeholder="Version 1"
                 value={newLanguageVersion1}
                 onChange={(e) => setNewLanguageVersion1(e.target.value)}
-                rows={2}
+                rows={4}
               />
             </div>
-            <div className="language-version-input">
-              <label>Version 2</label>
+            <div className="language-version-input-inline">
+              <label className="version-label">Version 2</label>
               <textarea
-                placeholder="Version 2 traduite"
+                placeholder="Version 2"
                 value={newLanguageVersion2}
                 onChange={(e) => setNewLanguageVersion2(e.target.value)}
-                rows={2}
+                rows={4}
               />
             </div>
-            <div className="language-version-input">
-              <label>Version 3</label>
+            <div className="language-version-input-inline">
+              <label className="version-label">Version 3</label>
               <textarea
-                placeholder="Version 3 traduite"
+                placeholder="Version 3"
                 value={newLanguageVersion3}
                 onChange={(e) => setNewLanguageVersion3(e.target.value)}
-                rows={2}
+                rows={4}
               />
             </div>
           </div>
