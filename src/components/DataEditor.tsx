@@ -584,13 +584,17 @@ const FieldEditor = ({
             v => v.language === targetLang && v.version === version
           );
           const storedAutoTranslation = autoTranslationsRef.current[targetLang]?.[version];
+          // Une traduction est manuellement modifiée si :
+          // - Elle existe dans le champ
+          // - Il y a une traduction auto stockée
+          // - La valeur actuelle est différente de la traduction auto stockée
           const isManuallyModified = existingTranslation && storedAutoTranslation && 
                                      existingTranslation.value !== storedAutoTranslation;
           
           // Traduire seulement si :
-          // 1. La valeur source existe et n'est pas vide
+          // 1. La valeur source existe et n'est pas vide (vérification stricte)
           // 2. La traduction n'a pas été modifiée manuellement (ou n'existe pas encore)
-          if (sourceValue && sourceValue.trim() && !isManuallyModified) {
+          if (sourceValue && sourceValue.trim() && sourceValue.length > 0 && !isManuallyModified) {
             const translationPromise = (async () => {
               try {
                 // Traduire directement depuis la valeur source actuelle
