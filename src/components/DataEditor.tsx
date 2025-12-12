@@ -650,7 +650,7 @@ const FieldEditor = ({
     }, 300); // Réduit à 300ms pour une réponse plus rapide
 
     return () => clearTimeout(timeoutId);
-  }, [version1Value, version2Value, version3Value, isInitialLoad, field.id, workingLanguage]);
+  }, [version1Value, version2Value, version3Value, isInitialLoad, field.id, workingLanguage, field.baseLanguage]);
 
   // Auto-sauvegarde automatique
   const autoSave = () => {
@@ -969,7 +969,11 @@ const FieldEditor = ({
                       const versionData = versions.find(v => v.version === version);
                       const currentValue = versionData?.value || '';
                       const autoTranslation = autoTranslationsRef.current[language]?.[version];
-                      const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                      // Une traduction est manuellement modifiée si :
+                      // - La valeur actuelle existe et n'est pas vide
+                      // - Il y a une traduction auto stockée
+                      // - La valeur actuelle est différente de la traduction auto stockée
+                      const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
                       
                       return (
                         <div key={version} className="language-version-input-inline">
