@@ -582,9 +582,20 @@ const FieldEditor = ({
     
     for (const targetLang of languagesToTranslate) {
       // Vérifier si cette traduction a été modifiée manuellement
-      const existingTranslation = updatedField.languageVersions.find(
-        v => v.language === targetLang && v.version === version
-      );
+      // IMPORTANT: Ne pas vérifier pour l'ancienne langue principale si elle est dans aiVersions
+      // car elle doit être traduite depuis la nouvelle langue principale
+      let existingTranslation;
+      if (targetLang === field.baseLanguage && workingLanguage !== field.baseLanguage) {
+        // Si la langue cible est l'ancienne baseLanguage, chercher dans aiVersions
+        const aiVersion = updatedField.aiVersions.find(v => v.version === version);
+        existingTranslation = aiVersion ? { language: targetLang, version: version, value: aiVersion.value } : null;
+      } else {
+        // Sinon, chercher dans languageVersions
+        existingTranslation = updatedField.languageVersions.find(
+          v => v.language === targetLang && v.version === version
+        );
+      }
+      
       const storedAutoTranslation = autoTranslationsRef.current[targetLang]?.[version];
       const isManuallyModified = existingTranslation && storedAutoTranslation && 
                                  existingTranslation.value !== storedAutoTranslation;
@@ -593,6 +604,7 @@ const FieldEditor = ({
       if (!isManuallyModified) {
         const translationPromise = (async () => {
           try {
+            // Traduire depuis workingLanguage vers targetLang
             const translationResult = await api.translate(sourceValue, targetLang, workingLanguage);
             
             if (!translationResult.success) {
@@ -604,7 +616,7 @@ const FieldEditor = ({
               text: translationResult.text,
             };
           } catch (error: any) {
-            console.error(`Error translating ${targetLang} version ${version}:`, error);
+            console.error(`Error translating ${targetLang} version ${version} from ${workingLanguage}:`, error);
             return null;
           }
         })();
@@ -624,8 +636,24 @@ const FieldEditor = ({
           autoTranslationsRef.current[result.lang] = {};
         }
         autoTranslationsRef.current[result.lang][version] = result.text;
-        // Mettre à jour le champ
-        updatedField = addTranslationToField(updatedField, result.lang, result.text, version);
+        
+        // Si la langue cible est l'ancienne baseLanguage (et que ce n'est plus la langue de travail),
+        // mettre à jour aiVersions au lieu de languageVersions
+        if (result.lang === field.baseLanguage && workingLanguage !== field.baseLanguage) {
+          const existingIndex = updatedField.aiVersions.findIndex(v => v.version === version);
+          if (existingIndex >= 0) {
+            updatedField.aiVersions[existingIndex].value = result.text;
+          } else {
+            updatedField.aiVersions.push({
+              version: version,
+              value: result.text,
+              createdAt: new Date().toISOString()
+            });
+          }
+        } else {
+          // Sinon, utiliser addTranslationToField normalement
+          updatedField = addTranslationToField(updatedField, result.lang, result.text, version);
+        }
       }
     }
     
