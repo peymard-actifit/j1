@@ -48,58 +48,82 @@ export default async function handler(
     }
 
     // Préparer le prompt pour l'analyse du CV avec mapping vers la structure JustOne
-    const prompt = `Analyse ce CV et extrais toutes les informations structurées selon la structure JustOne.
-    Retourne un JSON avec les champs suivants (utilise les noms exacts) :
-    
-    Informations personnelles :
-    - firstName: prénom
-    - lastName: nom de famille
-    - email: adresse email
-    - phone: numéro de téléphone
-    - addressLine1: première ligne d'adresse
-    - addressLine2: deuxième ligne d'adresse (si présente)
-    - postalCode: code postal
-    - city: ville
-    - country: pays
-    - region: région (si présente)
-    - birthDate: date de naissance (format YYYY-MM-DD si disponible)
-    - birthPlace: lieu de naissance
-    
-    Poste et résumé :
-    - jobTitle: poste recherché ou actuel
-    - summary: résumé professionnel ou profil
-    
-    Expériences professionnelles (tableau) :
-    - experience: tableau d'objets avec {title, company, startDate, endDate, description, mission, results}
-      (jusqu'à 10 expériences, numérotées de 1 à 10)
-    
-    Formations (tableau) :
-    - education: tableau d'objets avec {degree, school, startDate, endDate, description}
-      (jusqu'à 10 formations, numérotées de 1 à 10)
-    
-    Compétences :
-    - skills: tableau de compétences (chaque élément est une chaîne)
-    
-    Langues :
-    - languages: tableau d'objets avec {language, level}
-      (langue principale en premier)
-    
-    Certifications :
-    - certifications: tableau de certifications (chaque élément est une chaîne)
-    
-    Publications (si présentes) :
-    - publications: tableau de publications (chaque élément est une chaîne)
-    
-    Présentations (si présentes) :
-    - presentations: tableau de présentations (chaque élément est une chaîne)
-    
-    Expériences associatives (si présentes) :
-    - associativeExperiences: tableau d'objets avec {duration, description}
-    
-    Contenu du CV:
-    ${extractedText.substring(0, 50000)} // Limiter à 50000 caractères pour éviter les erreurs
-    
-    Retourne uniquement le JSON valide, sans texte supplémentaire ni markdown.`;
+    const prompt = `Tu es un expert en extraction de données de CV. Analyse ce CV et extrais TOUTES les informations de manière structurée et précise.
+
+IMPORTANT : 
+- Extrais TOUTES les informations présentes dans le CV, même si elles semblent incomplètes
+- Utilise les noms de champs EXACTS indiqués ci-dessous
+- Pour les dates, utilise le format YYYY-MM-DD si possible, sinon garde le format original
+- Pour les tableaux (expériences, formations), extrais TOUS les éléments présents, même s'il y en a plus de 10
+- Ne laisse AUCUN champ vide si l'information est présente dans le CV
+
+Retourne un JSON avec les champs suivants (utilise les noms EXACTS) :
+
+Informations personnelles :
+- firstName: prénom (OBLIGATOIRE si présent)
+- lastName: nom de famille (OBLIGATOIRE si présent)
+- email: adresse email (si présente)
+- phone: numéro de téléphone (peut être mobile, fixe, etc.)
+- addressLine1: première ligne d'adresse (rue, numéro)
+- addressLine2: deuxième ligne d'adresse (complément, appartement, etc.)
+- postalCode: code postal
+- city: ville
+- country: pays
+- region: région, département, état, province (si présent)
+- birthDate: date de naissance (format YYYY-MM-DD si disponible, sinon format original)
+- birthPlace: lieu de naissance
+
+Poste et résumé :
+- jobTitle: poste recherché, poste actuel, ou titre professionnel
+- summary: résumé professionnel, profil, présentation, about me, ou toute description personnelle
+
+Expériences professionnelles (tableau) :
+- experience: tableau d'objets avec {title, company, startDate, endDate, description, mission, results}
+  - title: intitulé du poste, fonction, rôle
+  - company: nom de l'entreprise, organisation, employeur
+  - startDate: date de début (format YYYY-MM ou YYYY-MM-DD si possible)
+  - endDate: date de fin (format YYYY-MM ou YYYY-MM-DD, ou "en cours", "present", "actuel" si toujours en poste)
+  - description: description générale du poste
+  - mission: missions principales, responsabilités
+  - results: résultats, réalisations, accomplissements
+  Extrais TOUTES les expériences présentes dans le CV, même s'il y en a plus de 10
+
+Formations (tableau) :
+- education: tableau d'objets avec {degree, school, startDate, endDate, description}
+  - degree: diplôme, certification, titre obtenu
+  - school: établissement, université, école
+  - startDate: date de début (format YYYY-MM ou YYYY-MM-DD)
+  - endDate: date de fin ou date d'obtention (format YYYY-MM ou YYYY-MM-DD)
+  - description: mention, spécialité, options
+  Extrais TOUTES les formations présentes dans le CV
+
+Compétences :
+- skills: tableau de compétences (chaque élément est une chaîne)
+  Extrais toutes les compétences techniques, linguistiques, professionnelles mentionnées
+
+Langues :
+- languages: tableau d'objets avec {language, level}
+  - language: nom de la langue (français, anglais, espagnol, etc.)
+  - level: niveau (A1, A2, B1, B2, C1, C2, natif, courant, bilingue, etc.)
+  Extrais toutes les langues mentionnées, la langue principale en premier
+
+Certifications :
+- certifications: tableau de certifications (chaque élément est une chaîne)
+  Extrais toutes les certifications, habilitations, permis mentionnés
+
+Publications (si présentes) :
+- publications: tableau de publications (chaque élément est une chaîne)
+
+Présentations (si présentes) :
+- presentations: tableau de présentations (chaque élément est une chaîne)
+
+Expériences associatives (si présentes) :
+- associativeExperiences: tableau d'objets avec {duration, description}
+
+Contenu du CV:
+${extractedText.substring(0, 50000)}
+
+Retourne UNIQUEMENT un JSON valide, sans texte supplémentaire, sans markdown, sans commentaires. Le JSON doit être directement parsable.`;
 
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
