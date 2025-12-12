@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { UserDataField } from '../types/database';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
-import { translateField, addTranslationToField } from '../utils/translation';
+import { addTranslationToField } from '../utils/translation';
 import './DataEditor.css';
 
 export const DataEditor = ({ onClose }: { onClose: () => void }) => {
@@ -11,7 +11,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
   const [showAddField, setShowAddField] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
-  const [showTranslateModal, setShowTranslateModal] = useState(false);
   const [filterText, setFilterText] = useState('');
 
   useEffect(() => {
@@ -136,48 +135,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   });
 
 
-  const handleTranslateAllFields = async (targetLang: string) => {
-    if (!user) return;
-
-    try {
-      // Traduire les 3 versions pour chaque champ
-      const updatedFields = await Promise.all(fields.map(async (field) => {
-        let updatedField = field;
-        
-        // Traduire chaque version (1, 2, 3)
-        for (let version = 1; version <= 3; version++) {
-          const sourceValue = field.aiVersions.find(v => v.version === version)?.value;
-          if (sourceValue) {
-            try {
-              const translated = await translateField(field, targetLang, version);
-              updatedField = addTranslationToField(updatedField, targetLang, translated, version);
-            } catch (error: any) {
-              console.error(`Error translating version ${version} for field ${field.id}:`, error);
-            }
-          }
-        }
-        
-        return updatedField;
-      }));
-
-      setFields(updatedFields);
-      
-      // Sauvegarder tous les champs
-      if (user && setUser) {
-        try {
-          const updatedUser = { ...user, data: updatedFields };
-          const savedUser = await storage.saveUser(updatedUser);
-          setUser(savedUser);
-          alert(`Traductions en ${targetLang} ajoutées avec succès !`);
-        } catch (error) {
-          console.error('Error saving translations:', error);
-          alert('Erreur lors de la sauvegarde des traductions');
-        }
-      }
-    } catch (error: any) {
-      alert(`Erreur lors de la traduction: ${error.message}`);
-    }
-  };
 
   const handleExportJSON = () => {
     if (!user) return;
@@ -198,9 +155,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
           <div className="data-editor-actions">
             <button onClick={handleExportJSON} className="export-button">
               📥 Exporter JSON
-            </button>
-            <button onClick={() => setShowTranslateModal(true)} className="translate-button">
-              🌐 Traduire
             </button>
             <button onClick={onClose} className="close-button">
               ✕
@@ -316,54 +270,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
         </div>
       </div>
 
-      {showTranslateModal && (
-        <div className="translate-modal-overlay" onClick={() => setShowTranslateModal(false)}>
-          <div className="translate-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="translate-modal-header">
-              <h3>Traduction automatique</h3>
-              <button onClick={() => setShowTranslateModal(false)} className="close-button">✕</button>
-            </div>
-            <div className="translate-modal-content">
-              <p>Traduire tous les champs vers une langue :</p>
-              <div className="translate-all-controls">
-                <select
-                  id="target-lang-select"
-                  className="lang-select"
-                  defaultValue=""
-                >
-                  <option value="">Sélectionner une langue</option>
-                  <option value="en">Anglais (en)</option>
-                  <option value="es">Espagnol (es)</option>
-                  <option value="de">Allemand (de)</option>
-                  <option value="it">Italien (it)</option>
-                  <option value="pt">Portugais (pt)</option>
-                  <option value="nl">Néerlandais (nl)</option>
-                  <option value="pl">Polonais (pl)</option>
-                  <option value="ru">Russe (ru)</option>
-                  <option value="ja">Japonais (ja)</option>
-                  <option value="zh">Chinois (zh)</option>
-                  <option value="ko">Coréen (ko)</option>
-                </select>
-                <button
-                  className="translate-all-button"
-                  onClick={async () => {
-                    const select = document.getElementById('target-lang-select') as HTMLSelectElement;
-                    const lang = select.value;
-                    if (lang) {
-                      await handleTranslateAllFields(lang);
-                      setShowTranslateModal(false);
-                    } else {
-                      alert('Veuillez sélectionner une langue');
-                    }
-                  }}
-                >
-                  Traduire tous les champs
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
@@ -387,8 +293,31 @@ const FieldEditor = ({
   const [version3Value, setVersion3Value] = useState(
     field.aiVersions.find(v => v.version === 3)?.value || ''
   );
-  // Langues disponibles
-  const availableLanguages = ['fr', 'en', 'es', 'de', 'it', 'pt'];
+  // Langues disponibles (toutes les langues supportées par DeepL)
+  const availableLanguages = [
+    'fr', // Français
+    'en', // Anglais
+    'es', // Espagnol
+    'de', // Allemand
+    'it', // Italien
+    'pt', // Portugais
+    'nl', // Néerlandais
+    'pl', // Polonais
+    'ru', // Russe
+    'ja', // Japonais
+    'zh', // Chinois
+    'ko', // Coréen
+    'ar', // Arabe
+    'cs', // Tchèque
+    'da', // Danois
+    'el', // Grec
+    'hu', // Hongrois
+    'id', // Indonésien
+    'nb', // Norvégien
+    'sv', // Suédois
+    'tr', // Turc
+    'uk', // Ukrainien
+  ];
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevVersion1Ref = useRef<string>('');
@@ -445,7 +374,16 @@ const FieldEditor = ({
           // Ne traduire que si la valeur a changé et n'est pas vide
           if (valueChanged && sourceValue && sourceValue.trim()) {
             try {
-              const translated = await translateField(updatedField, targetLang, version);
+              // Traduire directement depuis la valeur source actuelle
+              // Utiliser l'API de traduction directement
+              const { api } = await import('../utils/api');
+              const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
+              
+              if (!translationResult.success) {
+                throw new Error(translationResult.error || 'Erreur lors de la traduction');
+              }
+              
+              const translated = translationResult.text;
               updatedField = addTranslationToField(updatedField, targetLang, translated, version);
               hasUpdates = true;
             } catch (error: any) {
