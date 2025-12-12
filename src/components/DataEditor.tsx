@@ -644,12 +644,8 @@ const FieldEditor = ({
       }
     };
 
-    // Délai très court pour éviter trop de traductions pendant la saisie rapide
-    const timeoutId = setTimeout(() => {
-      translateAllLanguages();
-    }, 300); // Réduit à 300ms pour une réponse plus rapide
-
-    return () => clearTimeout(timeoutId);
+    // Traduction immédiate sans délai
+    translateAllLanguages();
   }, [version1Value, version2Value, version3Value, isInitialLoad, field.id, workingLanguage, field.baseLanguage]);
 
   // Auto-sauvegarde automatique
@@ -756,9 +752,12 @@ const FieldEditor = ({
                           <textarea
                             value={value}
                             onChange={(e) => {
-                              if (version === 1) setVersion1Value(e.target.value);
-                              else if (version === 2) setVersion2Value(e.target.value);
-                              else setVersion3Value(e.target.value);
+                              const newValue = e.target.value;
+                              // Mettre à jour immédiatement le state pour l'affichage
+                              if (version === 1) setVersion1Value(newValue);
+                              else if (version === 2) setVersion2Value(newValue);
+                              else setVersion3Value(newValue);
+                              // La traduction automatique se déclenchera via le useEffect
                             }}
                             rows={2}
                             placeholder={`Version ${version}`}
