@@ -387,7 +387,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                 onSave={handleSaveField}
                 workingLanguage={workingLanguage}
                 onChangeWorkingLanguage={handleChangeWorkingLanguage}
-                userBaseLanguage={userBaseLanguage}
+                userBaseLanguage={user?.baseLanguage || 'fr'}
               />
             ) : (
               <div className="no-field-selected">
