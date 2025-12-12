@@ -377,7 +377,7 @@ const FieldEditor = ({
     
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
-  }, [field.id]);
+  }, [field.id, field.languageVersions]); // Utiliser languageVersions directement pour détecter les changements
 
   // Traduire automatiquement toutes les langues quand on modifie une version FR
   useEffect(() => {
@@ -391,53 +391,76 @@ const FieldEditor = ({
 
     if (!v1Changed && !v2Changed && !v3Changed) return;
 
-    // Mettre à jour les références
+    // Mettre à jour les références immédiatement
     prevVersion1Ref.current = version1Value;
     prevVersion2Ref.current = version2Value;
     prevVersion3Ref.current = version3Value;
 
     const translateAllLanguages = async () => {
       const languagesToTranslate = availableLanguages.filter(lang => lang !== field.baseLanguage);
-      let updatedField = { ...field };
+      
+      // Créer une copie du champ avec les valeurs actuelles
+      const currentField = {
+        ...field,
+        aiVersions: [
+          { version: 1, value: version1Value, createdAt: new Date().toISOString() },
+          { version: 2, value: version2Value, createdAt: new Date().toISOString() },
+          { version: 3, value: version3Value, createdAt: new Date().toISOString() },
+        ].filter(v => v.value && v.value.trim()),
+      };
+      
+      let updatedField = { ...currentField };
       let hasUpdates = false;
+      
+      // Traduire toutes les langues pour toutes les versions qui ont changé
+      const translationPromises: Promise<void>[] = [];
       
       for (const targetLang of languagesToTranslate) {
         for (let version = 1; version <= 3; version++) {
           const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
           const valueChanged = version === 1 ? v1Changed : version === 2 ? v2Changed : v3Changed;
           
-          // Ne traduire que si la valeur a changé et n'est pas vide
+          // Traduire si la valeur a changé et n'est pas vide
           if (valueChanged && sourceValue && sourceValue.trim()) {
-            try {
-              // Traduire directement depuis la valeur source actuelle
-              const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
-              
-              if (!translationResult.success) {
-                throw new Error(translationResult.error || 'Erreur lors de la traduction');
+            const translationPromise = (async () => {
+              try {
+                // Traduire directement depuis la valeur source actuelle
+                const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
+                
+                if (!translationResult.success) {
+                  throw new Error(translationResult.error || 'Erreur lors de la traduction');
+                }
+                
+                const translated = translationResult.text;
+                // Utiliser une fonction pour mettre à jour de manière thread-safe
+                updatedField = addTranslationToField(updatedField, targetLang, translated, version);
+                hasUpdates = true;
+              } catch (error: any) {
+                console.error(`Error translating ${targetLang} version ${version}:`, error);
               }
-              
-              const translated = translationResult.text;
-              updatedField = addTranslationToField(updatedField, targetLang, translated, version);
-              hasUpdates = true;
-            } catch (error: any) {
-              console.error(`Error translating ${targetLang} version ${version}:`, error);
-            }
+            })();
+            
+            translationPromises.push(translationPromise);
           }
         }
       }
 
+      // Attendre que toutes les traductions soient terminées
+      await Promise.all(translationPromises);
+
       if (hasUpdates) {
+        // Mettre à jour le champ avec les nouvelles traductions
         onSave(updatedField);
       }
     };
 
-    // Délai pour éviter trop de traductions pendant la saisie
+    // Délai très court pour éviter trop de traductions pendant la saisie rapide
     const timeoutId = setTimeout(() => {
       translateAllLanguages();
-    }, 1500);
+    }, 500); // Réduit à 500ms pour une réponse plus rapide
 
     return () => clearTimeout(timeoutId);
-  }, [version1Value, version2Value, version3Value, isInitialLoad]);
+  }, [version1Value, version2Value, version3Value, isInitialLoad, field.id]);
 
   const handleSave = () => {
     // Mettre à jour les 3 versions dans aiVersions
@@ -534,7 +557,8 @@ const FieldEditor = ({
           }
           
           // Pour les autres langues, utiliser languageVersions
-          const versions = field.languageVersions
+          // Utiliser le champ le plus récent (celui qui vient d'être sauvegardé)
+          const versions = (field.languageVersions || [])
             .filter(v => v.language === language)
             .sort((a, b) => a.version - b.version);
           
