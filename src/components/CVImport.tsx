@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
-import { api } from '../utils/api';
-import { UserDataField, LanguageVersion } from '../types/database';
+import { UserDataField } from '../types/database';
 import { analyzeCVFile } from '../utils/ai';
 import './CVImport.css';
 
@@ -27,7 +26,6 @@ interface FieldMapping {
 export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
   const { user, setUser } = useAuth();
   const [file, setFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
   const [extractedData, setExtractedData] = useState<ExtractedData | null>(null);
   const [mappings, setMappings] = useState<FieldMapping[]>([]);
@@ -67,9 +65,6 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     setStep('analyze');
 
     try {
-      // Lire le contenu du fichier
-      const fileContent = await readFileContent(file);
-      
       // Analyser avec l'API IA
       const analysis = await analyzeCVFile(file);
       setExtractedData(analysis);
@@ -383,10 +378,6 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     }
   };
 
-  const getFieldName = (fieldId: string): string => {
-    const field = userFields.find(f => f.id === fieldId);
-    return field?.name || fieldId;
-  };
 
   const getAvailableLanguages = (): string[] => {
     return ['fr', 'en', 'es', 'de', 'it', 'pt'];
@@ -464,10 +455,11 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                 </p>
                 <button
                   onClick={() => {
-                    const allValid = mappings.filter(m => m.fieldId).map((m, idx) => {
-                      const updated = [...mappings];
-                      updated[idx].confirmed = true;
-                      return updated[idx];
+                    const allValid = mappings.map(m => {
+                      if (m.fieldId) {
+                        return { ...m, confirmed: true };
+                      }
+                      return m;
                     });
                     setMappings(allValid);
                   }}
@@ -566,9 +558,9 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                 <button
                   onClick={handleSaveMappings}
                   className="button-primary"
-                  disabled={mappings.filter(m => m.confirmed).length === 0 || step === 'saving'}
+                  disabled={mappings.filter(m => m.confirmed).length === 0}
                 >
-                  {step === 'saving' ? 'Sauvegarde...' : `Sauvegarder (${mappings.filter(m => m.confirmed).length} validés)`}
+                  {`Sauvegarder (${mappings.filter(m => m.confirmed).length} validés)`}
                 </button>
               </div>
             </div>

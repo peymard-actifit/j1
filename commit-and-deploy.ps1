@@ -101,7 +101,7 @@ try {
     Write-Info "Déploiement en cours..."
     
     # Vérification de la présence du token Vercel
-    $vercelToken = "HciyBUXPVsY9XqJUXuEK0khk"
+    $vercelToken = "xZAk2IdsbdUZCGIfTl4U8nYN"
     if ($vercelToken) {
         $env:VERCEL_TOKEN = $vercelToken
         Write-Info "Token Vercel configuré"

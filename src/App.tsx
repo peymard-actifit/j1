@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { CVUpload } from './components/CVUpload';
 import { CVImport } from './components/CVImport';
 import { LoginScreen } from './components/LoginScreen';
 import { Header } from './components/Header';
@@ -109,11 +108,6 @@ const AppContent = () => {
     }
   };
 
-  const handleCVAnalysisComplete = (_data: any) => {
-    setShowCVUpload(false);
-    // TODO: Intégrer les données analysées dans la base de données utilisateur
-    setShowDataEditor(true);
-  };
 
   // Afficher un loader pendant le chargement initial
   if (isLoading) {
