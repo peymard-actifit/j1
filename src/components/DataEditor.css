@@ -305,9 +305,11 @@
 .form-field-inline-compact label {
   font-weight: 600;
   color: #333;
-  min-width: 80px;
+  width: 100px;
   flex-shrink: 0;
   font-size: 0.9rem;
+  text-align: right;
+  padding-right: 0.5rem;
 }
 
 .form-field-inline-compact input {
