@@ -840,7 +840,11 @@ const FieldEditor = ({
                     const versionData = versions.find(v => v.version === version);
                     const currentValue = versionData?.value || '';
                     const autoTranslation = autoTranslationsRef.current[language]?.[version];
-                    const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                    // Une traduction est manuellement modifiée si :
+                    // - La valeur actuelle existe et n'est pas vide
+                    // - Il y a une traduction auto stockée
+                    // - La valeur actuelle est différente de la traduction auto stockée
+                    const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
                     
                     return (
                       <div key={version} className="language-version-input-inline">
@@ -1022,7 +1026,11 @@ const FieldEditor = ({
                     const versionData = versions.find(v => v.version === version);
                     const currentValue = versionData?.value || '';
                     const autoTranslation = autoTranslationsRef.current[language]?.[version];
-                    const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                    // Une traduction est manuellement modifiée si :
+                    // - La valeur actuelle existe et n'est pas vide
+                    // - Il y a une traduction auto stockée
+                    // - La valeur actuelle est différente de la traduction auto stockée
+                    const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
                     
                     return (
                       <div key={version} className="language-version-input-inline">
