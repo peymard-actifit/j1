@@ -81,28 +81,76 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     }
   };
 
+  // Fonction pour vérifier si une valeur existe déjà dans un champ
+  const valueExistsInField = (field: UserDataField, value: string, language: string): { exists: boolean; version?: number } => {
+    const normalizedValue = value.trim().toLowerCase();
+    
+    if (language === field.baseLanguage) {
+      // Vérifier dans aiVersions
+      for (const aiVersion of field.aiVersions || []) {
+        if (aiVersion.value.trim().toLowerCase() === normalizedValue) {
+          return { exists: true, version: aiVersion.version };
+        }
+      }
+    } else {
+      // Vérifier dans languageVersions
+      for (const langVersion of field.languageVersions || []) {
+        if (langVersion.language === language && langVersion.value.trim().toLowerCase() === normalizedValue) {
+          return { exists: true, version: langVersion.version };
+        }
+      }
+    }
+    
+    return { exists: false };
+  };
+
+  // Fonction pour trouver la première version disponible
+  const findAvailableVersion = (field: UserDataField, language: string): 1 | 2 | 3 => {
+    if (language === field.baseLanguage) {
+      const existingVersions = (field.aiVersions || []).map(v => v.version);
+      for (let v = 1; v <= 3; v++) {
+        if (!existingVersions.includes(v)) {
+          return v as 1 | 2 | 3;
+        }
+      }
+      // Si toutes les versions existent, retourner la version 1 par défaut
+      return 1;
+    } else {
+      const existingVersions = (field.languageVersions || [])
+        .filter(lv => lv.language === language)
+        .map(lv => lv.version);
+      for (let v = 1; v <= 3; v++) {
+        if (!existingVersions.includes(v)) {
+          return v as 1 | 2 | 3;
+        }
+      }
+      return 1;
+    }
+  };
+
   const generateAutoMappings = (extracted: ExtractedData, fields: UserDataField[]): FieldMapping[] => {
     const mappings: FieldMapping[] = [];
     const baseLanguage = user?.baseLanguage || 'fr';
 
     // Mapping automatique amélioré basé sur les tags et noms de champs
+    // Ajout de plus de variations pour améliorer la reconnaissance
     const fieldMap: Record<string, string[]> = {
-      'prenom': ['firstname', 'firstName', 'prenom', 'prénom'],
-      'nom': ['lastname', 'lastName', 'nom', 'surname', 'name'],
-      'mail': ['email', 'mail', 'courriel', 'e-mail'],
-      'telephone': ['phone', 'telephone', 'tel', 'mobile', 'téléphone'],
-      'adresse01': ['addressline1', 'addressLine1', 'adresse', 'street', 'rue', 'address'],
-      'adresse02': ['addressline2', 'addressLine2', 'adresse2'],
-      'codepostal': ['postalcode', 'postalCode', 'codepostal', 'codePostal', 'zip', 'zipcode'],
-      'ville': ['city', 'ville'],
-      'pays': ['country', 'pays'],
-      'region': ['region', 'région', 'state'],
-      'datedenaissance': ['birthdate', 'birthDate', 'datedenaissance', 'dateDeNaissance', 'dob'],
-      'lieudenaissance': ['birthplace', 'birthPlace', 'lieudenaissance', 'lieuDeNaissance'],
-      'posterecherche': ['jobtitle', 'jobTitle', 'posterecherche', 'posteRecherche', 'position'],
-      'resumeprofessionnel': ['summary', 'resume', 'resumeprofessionnel', 'résumé', 'profil', 'profile'],
-      'langue01': ['languages', 'langue', 'language'],
-      'niveaulangue01': ['languagelevel', 'languageLevel', 'niveaulangue'],
+      'prenom': ['firstname', 'firstName', 'prenom', 'prénom', 'first_name', 'first name', 'givenname', 'given name'],
+      'nom': ['lastname', 'lastName', 'nom', 'surname', 'name', 'last_name', 'last name', 'familyname', 'family name'],
+      'mail': ['email', 'mail', 'courriel', 'e-mail', 'e_mail', 'emailaddress', 'email address'],
+      'telephone': ['phone', 'telephone', 'tel', 'mobile', 'téléphone', 'phone_number', 'phone number', 'phonenumber'],
+      'adresse01': ['addressline1', 'addressLine1', 'adresse', 'street', 'rue', 'address', 'address_line1', 'address line1', 'address1'],
+      'adresse02': ['addressline2', 'addressLine2', 'adresse2', 'address_line2', 'address line2', 'address2'],
+      'codepostal': ['postalcode', 'postalCode', 'codepostal', 'codePostal', 'zip', 'zipcode', 'postal_code', 'postal code', 'cp'],
+      'ville': ['city', 'ville', 'town'],
+      'pays': ['country', 'pays', 'nation'],
+      'region': ['region', 'région', 'state', 'province', 'département', 'departement'],
+      'datedenaissance': ['birthdate', 'birthDate', 'datedenaissance', 'dateDeNaissance', 'dob', 'birth_date', 'birth date', 'dateofbirth', 'date of birth'],
+      'lieudenaissance': ['birthplace', 'birthPlace', 'lieudenaissance', 'lieuDeNaissance', 'birth_place', 'birth place', 'placeofbirth', 'place of birth'],
+      'posterecherche': ['jobtitle', 'jobTitle', 'posterecherche', 'posteRecherche', 'position', 'job_title', 'job title', 'title', 'poste', 'fonction'],
+      'resumeprofessionnel': ['summary', 'resume', 'resumeprofessionnel', 'résumé', 'profil', 'profile', 'about', 'aboutme', 'about me', 'description', 'presentation'],
+      'langue01': ['languages', 'langue', 'language', 'lang', 'langues'],
+      'niveaulangue01': ['languagelevel', 'languageLevel', 'niveaulangue', 'language_level', 'language level', 'level'],
     };
 
     // Parcourir les champs utilisateur et créer des mappings automatiques
@@ -110,7 +158,11 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
       const possibleKeys = fieldMap[field.id] || [
         field.tag.toLowerCase(),
         field.name.toLowerCase(),
-        field.id.toLowerCase()
+        field.id.toLowerCase(),
+        // Ajouter aussi des variations du tag
+        field.tag.toLowerCase().replace(/[^a-z0-9]/g, ''),
+        field.tag.toLowerCase().replace(/_/g, ''),
+        field.tag.toLowerCase().replace(/-/g, ''),
       ];
       
       // Chercher une correspondance dans les données extraites
@@ -118,7 +170,13 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
         const keyLower = key.toLowerCase().replace(/[^a-z0-9]/g, '');
         const matches = possibleKeys.some(pk => {
           const pkClean = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
-          return keyLower === pkClean || keyLower.includes(pkClean) || pkClean.includes(keyLower);
+          // Améliorer le matching : correspondance exacte, contient, ou est contenu
+          return keyLower === pkClean || 
+                 keyLower.includes(pkClean) || 
+                 pkClean.includes(keyLower) ||
+                 key.toLowerCase() === pk.toLowerCase() ||
+                 key.toLowerCase().includes(pk.toLowerCase()) ||
+                 pk.toLowerCase().includes(key.toLowerCase());
         });
         
         if (matches && value !== null && value !== undefined) {
@@ -132,14 +190,23 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
           }
           
           if (stringValue) {
-            mappings.push({
-              fieldId: field.id,
-              extractedKey: key,
-              extractedValue: stringValue,
-              targetLanguage: baseLanguage,
-              targetVersion: 1,
-              confirmed: false,
-            });
+            // Vérifier si la valeur existe déjà dans le champ
+            const existsCheck = valueExistsInField(field, stringValue, baseLanguage);
+            
+            if (!existsCheck.exists) {
+              // Trouver la première version disponible
+              const availableVersion = findAvailableVersion(field, baseLanguage);
+              
+              mappings.push({
+                fieldId: field.id,
+                extractedKey: key,
+                extractedValue: stringValue,
+                targetLanguage: baseLanguage,
+                targetVersion: availableVersion,
+                confirmed: false,
+              });
+            }
+            // Si la valeur existe déjà, on ne crée pas de mapping
             break; // Une seule correspondance par champ
           }
         }
@@ -171,14 +238,20 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
           }
           
           if (value && typeof value === 'string' && value.trim()) {
-            mappings.push({
-              fieldId: field.id,
-              extractedKey: `experience[${idx}].${fieldType}`,
-              extractedValue: value.trim(),
-              targetLanguage: baseLanguage,
-              targetVersion: 1,
-              confirmed: false,
-            });
+            // Vérifier si la valeur existe déjà
+            const existsCheck = valueExistsInField(field, value.trim(), baseLanguage);
+            
+            if (!existsCheck.exists) {
+              const availableVersion = findAvailableVersion(field, baseLanguage);
+              mappings.push({
+                fieldId: field.id,
+                extractedKey: `experience[${idx}].${fieldType}`,
+                extractedValue: value.trim(),
+                targetLanguage: baseLanguage,
+                targetVersion: availableVersion,
+                confirmed: false,
+              });
+            }
           }
         });
       });
@@ -207,14 +280,20 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
           }
           
           if (value && typeof value === 'string' && value.trim()) {
-            mappings.push({
-              fieldId: field.id,
-              extractedKey: `education[${idx}].${fieldType}`,
-              extractedValue: value.trim(),
-              targetLanguage: baseLanguage,
-              targetVersion: 1,
-              confirmed: false,
-            });
+            // Vérifier si la valeur existe déjà
+            const existsCheck = valueExistsInField(field, value.trim(), baseLanguage);
+            
+            if (!existsCheck.exists) {
+              const availableVersion = findAvailableVersion(field, baseLanguage);
+              mappings.push({
+                fieldId: field.id,
+                extractedKey: `education[${idx}].${fieldType}`,
+                extractedValue: value.trim(),
+                targetLanguage: baseLanguage,
+                targetVersion: availableVersion,
+                confirmed: false,
+              });
+            }
           }
         });
       });
@@ -225,14 +304,18 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
       const skillsText = extracted.skills.join(', ');
       const skillsField = fields.find(f => f.id === 'competences' || f.tag.toLowerCase().includes('competence'));
       if (skillsField && skillsText) {
-        mappings.push({
-          fieldId: skillsField.id,
-          extractedKey: 'skills',
-          extractedValue: skillsText,
-          targetLanguage: baseLanguage,
-          targetVersion: 1,
-          confirmed: false,
-        });
+        const existsCheck = valueExistsInField(skillsField, skillsText, baseLanguage);
+        if (!existsCheck.exists) {
+          const availableVersion = findAvailableVersion(skillsField, baseLanguage);
+          mappings.push({
+            fieldId: skillsField.id,
+            extractedKey: 'skills',
+            extractedValue: skillsText,
+            targetLanguage: baseLanguage,
+            targetVersion: availableVersion,
+            confirmed: false,
+          });
+        }
       }
     }
 
@@ -245,25 +328,33 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
           const levelField = fields.find(f => f.id === 'niveaulangue01');
           
           if (langField && lang.language) {
-            mappings.push({
-              fieldId: langField.id,
-              extractedKey: `languages[0].language`,
-              extractedValue: lang.language,
-              targetLanguage: baseLanguage,
-              targetVersion: 1,
-              confirmed: false,
-            });
+            const existsCheck = valueExistsInField(langField, lang.language, baseLanguage);
+            if (!existsCheck.exists) {
+              const availableVersion = findAvailableVersion(langField, baseLanguage);
+              mappings.push({
+                fieldId: langField.id,
+                extractedKey: `languages[0].language`,
+                extractedValue: lang.language,
+                targetLanguage: baseLanguage,
+                targetVersion: availableVersion,
+                confirmed: false,
+              });
+            }
           }
           
           if (levelField && lang.level) {
-            mappings.push({
-              fieldId: levelField.id,
-              extractedKey: `languages[0].level`,
-              extractedValue: lang.level,
-              targetLanguage: baseLanguage,
-              targetVersion: 1,
-              confirmed: false,
-            });
+            const existsCheck = valueExistsInField(levelField, lang.level, baseLanguage);
+            if (!existsCheck.exists) {
+              const availableVersion = findAvailableVersion(levelField, baseLanguage);
+              mappings.push({
+                fieldId: levelField.id,
+                extractedKey: `languages[0].level`,
+                extractedValue: lang.level,
+                targetLanguage: baseLanguage,
+                targetVersion: availableVersion,
+                confirmed: false,
+              });
+            }
           }
         }
       });
