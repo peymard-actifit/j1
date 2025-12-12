@@ -548,6 +548,7 @@ const FieldEditor = ({
 
   // Fonction pour traduire une version spécifique de la langue principale dans toutes les langues secondaires
   const translateVersion = async (version: 1 | 2 | 3) => {
+    // Récupérer la valeur depuis le state local (qui est toujours à jour)
     const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
     
     // Vérifier que la valeur source existe et n'est pas vide
@@ -558,7 +559,8 @@ const FieldEditor = ({
     const languagesToTranslate = availableLanguages.filter(lang => lang !== workingLanguage);
     let updatedField = { ...field };
     
-    // Mettre à jour le champ avec la valeur actuelle si nécessaire
+    // Mettre à jour le champ avec la valeur actuelle AVANT de traduire
+    // Cela garantit que la valeur source est bien sauvegardée
     if (workingLanguage === field.baseLanguage) {
       const existingIndex = updatedField.aiVersions.findIndex(v => v.version === version);
       if (existingIndex >= 0) {
@@ -571,6 +573,7 @@ const FieldEditor = ({
         });
       }
     } else {
+      // Si la langue de travail n'est pas la base, mettre à jour dans languageVersions
       updatedField = addTranslationToField(updatedField, workingLanguage, sourceValue, version);
     }
     
@@ -648,28 +651,38 @@ const FieldEditor = ({
     let updatedField = { ...field };
     
     // Effacer la version dans aiVersions si c'est la langue de base
-    if (workingLanguage === field.baseLanguage) {
+    // (même si ce n'est plus la langue de travail, il faut l'effacer si elle existe)
+    if (field.baseLanguage) {
       updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
-    } else {
-      // Si la langue de travail n'est pas la base, effacer aussi de languageVersions
+    }
+    
+    // Effacer la version dans languageVersions pour la langue de travail si ce n'est pas la base
+    if (workingLanguage !== field.baseLanguage) {
       updatedField.languageVersions = updatedField.languageVersions.filter(
         v => !(v.language === workingLanguage && v.version === version)
       );
     }
     
-    // Effacer toutes les traductions de cette version dans TOUTES les langues
+    // Effacer toutes les traductions de cette version dans TOUTES les langues (y compris l'ancienne langue principale)
     availableLanguages.forEach(targetLang => {
-      // Si c'est la langue de travail, on l'a déjà fait
-      if (targetLang === workingLanguage) {
+      // Si c'est la langue de travail, on l'a déjà fait (sauf si c'est aussi la baseLanguage)
+      if (targetLang === workingLanguage && workingLanguage !== field.baseLanguage) {
         return;
       }
       
+      // Si c'est la baseLanguage et que c'est aussi la langue de travail, on l'a déjà fait
+      if (targetLang === field.baseLanguage && workingLanguage === field.baseLanguage) {
+        return;
+      }
+      
+      // Effacer dans languageVersions
       const existingIndex = updatedField.languageVersions.findIndex(
         v => v.language === targetLang && v.version === version
       );
       if (existingIndex >= 0) {
         updatedField.languageVersions.splice(existingIndex, 1);
       }
+      
       // Effacer aussi la traduction auto stockée
       if (autoTranslationsRef.current[targetLang]) {
         delete autoTranslationsRef.current[targetLang][version];
