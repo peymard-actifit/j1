@@ -207,15 +207,69 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
 
 
 
-  const handleExportJSON = () => {
-    if (!user) return;
-    const dataStr = JSON.stringify(user.data, null, 2);
-    const dataBlob = new Blob([dataStr], { type: 'application/json' });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `cv-data-${Date.now()}.json`;
-    link.click();
+  const handleExport = () => {
+    if (!user || !user.data || user.data.length === 0) {
+      alert('Aucune donnée à exporter');
+      return;
+    }
+
+    // Export JSON
+    const jsonStr = JSON.stringify(user.data, null, 2);
+    const jsonBlob = new Blob([jsonStr], { type: 'application/json' });
+    const jsonUrl = URL.createObjectURL(jsonBlob);
+    const jsonLink = document.createElement('a');
+    jsonLink.href = jsonUrl;
+    jsonLink.download = `cv-data-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(jsonLink);
+    jsonLink.click();
+    document.body.removeChild(jsonLink);
+    URL.revokeObjectURL(jsonUrl);
+
+    // Export CSV
+    // Convertir les données en CSV
+    const csvRows: string[] = [];
+    
+    // En-têtes CSV
+    const headers = ['ID', 'Nom', 'Tag', 'Type', 'Langue de base', 'Version 1', 'Version 2', 'Version 3', 'Traductions'];
+    csvRows.push(headers.join(','));
+
+    // Données CSV
+    user.data.forEach(field => {
+      const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
+      const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
+      const v3 = field.aiVersions.find(v => v.version === 3)?.value || '';
+      
+      // Récupérer toutes les traductions
+      const translations: string[] = [];
+      field.languageVersions.forEach(lv => {
+        translations.push(`${lv.language}-v${lv.version}:${lv.value.replace(/"/g, '""')}`);
+      });
+      const translationsStr = translations.join('; ');
+
+      const row = [
+        field.id,
+        `"${field.name.replace(/"/g, '""')}"`,
+        `"${field.tag.replace(/"/g, '""')}"`,
+        field.type,
+        field.baseLanguage,
+        `"${v1.replace(/"/g, '""')}"`,
+        `"${v2.replace(/"/g, '""')}"`,
+        `"${v3.replace(/"/g, '""')}"`,
+        `"${translationsStr.replace(/"/g, '""')}"`
+      ];
+      csvRows.push(row.join(','));
+    });
+
+    const csvStr = csvRows.join('\n');
+    const csvBlob = new Blob([csvStr], { type: 'text/csv;charset=utf-8;' });
+    const csvUrl = URL.createObjectURL(csvBlob);
+    const csvLink = document.createElement('a');
+    csvLink.href = csvUrl;
+    csvLink.download = `cv-data-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(csvLink);
+    csvLink.click();
+    document.body.removeChild(csvLink);
+    URL.revokeObjectURL(csvUrl);
   };
 
   return (
@@ -224,8 +278,8 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
         <div className="data-editor-header">
           <h2>Édition des données CV</h2>
           <div className="data-editor-actions">
-            <button onClick={handleExportJSON} className="export-button">
-              📥 Exporter JSON
+            <button onClick={handleExport} className="export-button">
+              📥 Exporter
             </button>
             <button onClick={onClose} className="close-button">
               ✕
