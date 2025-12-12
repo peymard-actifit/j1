@@ -387,6 +387,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                 onSave={handleSaveField}
                 workingLanguage={workingLanguage}
                 onChangeWorkingLanguage={handleChangeWorkingLanguage}
+                userBaseLanguage={userBaseLanguage}
               />
             ) : (
               <div className="no-field-selected">
@@ -406,11 +407,13 @@ const FieldEditor = ({
   onSave,
   workingLanguage,
   onChangeWorkingLanguage,
+  userBaseLanguage,
 }: {
   field: UserDataField;
   onSave: (field: UserDataField) => void;
   workingLanguage: string;
   onChangeWorkingLanguage: (lang: string) => void;
+  userBaseLanguage: string;
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
@@ -484,16 +487,29 @@ const FieldEditor = ({
   const autoTranslationsRef = useRef<Record<string, Record<number, string>>>({});
 
   // Récupérer les valeurs de la langue de travail
+  // IMPORTANT: Utiliser userBaseLanguage (langue principale actuelle) au lieu de field.baseLanguage (langue originale du champ)
   const getWorkingLanguageValues = () => {
-    if (workingLanguage === field.baseLanguage) {
-      // Si la langue de travail est la langue de base, utiliser aiVersions
-      return {
-        v1: field.aiVersions.find(v => v.version === 1)?.value || '',
-        v2: field.aiVersions.find(v => v.version === 2)?.value || '',
-        v3: field.aiVersions.find(v => v.version === 3)?.value || '',
-      };
+    // Si la langue de travail est la langue principale actuelle de l'utilisateur
+    if (workingLanguage === userBaseLanguage) {
+      // Si la langue de travail est aussi la baseLanguage originale du champ, utiliser aiVersions
+      if (workingLanguage === field.baseLanguage) {
+        return {
+          v1: field.aiVersions.find(v => v.version === 1)?.value || '',
+          v2: field.aiVersions.find(v => v.version === 2)?.value || '',
+          v3: field.aiVersions.find(v => v.version === 3)?.value || '',
+        };
+      } else {
+        // La langue de travail est la nouvelle langue principale, mais le champ a une ancienne baseLanguage
+        // Chercher dans languageVersions pour la nouvelle langue principale
+        const versions = field.languageVersions.filter(v => v.language === workingLanguage);
+        return {
+          v1: versions.find(v => v.version === 1)?.value || '',
+          v2: versions.find(v => v.version === 2)?.value || '',
+          v3: versions.find(v => v.version === 3)?.value || '',
+        };
+      }
     } else {
-      // Sinon, utiliser languageVersions
+      // La langue de travail n'est pas la langue principale actuelle, chercher dans languageVersions
       const versions = field.languageVersions.filter(v => v.language === workingLanguage);
       return {
         v1: versions.find(v => v.version === 1)?.value || '',
@@ -582,11 +598,10 @@ const FieldEditor = ({
     
     for (const targetLang of languagesToTranslate) {
       // Vérifier si cette traduction a été modifiée manuellement
-      // IMPORTANT: Ne pas vérifier pour l'ancienne langue principale si elle est dans aiVersions
-      // car elle doit être traduite depuis la nouvelle langue principale
+      // IMPORTANT: Chercher la traduction existante au bon endroit selon la langue cible
       let existingTranslation;
-      if (targetLang === field.baseLanguage && workingLanguage !== field.baseLanguage) {
-        // Si la langue cible est l'ancienne baseLanguage, chercher dans aiVersions
+      if (targetLang === field.baseLanguage && targetLang !== userBaseLanguage) {
+        // Si la langue cible est l'ancienne baseLanguage (mais n'est plus la langue principale actuelle), chercher dans aiVersions
         const aiVersion = updatedField.aiVersions.find(v => v.version === version);
         existingTranslation = aiVersion ? { language: targetLang, version: version, value: aiVersion.value } : null;
       } else {
@@ -637,9 +652,9 @@ const FieldEditor = ({
         }
         autoTranslationsRef.current[result.lang][version] = result.text;
         
-        // Si la langue cible est l'ancienne baseLanguage (et que ce n'est plus la langue de travail),
+        // Si la langue cible est l'ancienne baseLanguage (et que ce n'est plus la langue principale actuelle),
         // mettre à jour aiVersions au lieu de languageVersions
-        if (result.lang === field.baseLanguage && workingLanguage !== field.baseLanguage) {
+        if (result.lang === field.baseLanguage && workingLanguage !== field.baseLanguage && result.lang !== userBaseLanguage) {
           const existingIndex = updatedField.aiVersions.findIndex(v => v.version === version);
           if (existingIndex >= 0) {
             updatedField.aiVersions[existingIndex].value = result.text;
@@ -678,29 +693,31 @@ const FieldEditor = ({
     // Effacer toutes les traductions de cette version pour TOUTES les langues
     let updatedField = { ...field };
     
-    // Effacer la version dans aiVersions si c'est la langue de base
-    // (même si ce n'est plus la langue de travail, il faut l'effacer si elle existe)
-    if (field.baseLanguage) {
+    // Retirer de aiVersions si la version existe et que la baseLanguage originale est la langue de travail
+    if (workingLanguage === field.baseLanguage && workingLanguage === userBaseLanguage) {
       updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
     }
-    
-    // Effacer la version dans languageVersions pour la langue de travail si ce n'est pas la base
-    if (workingLanguage !== field.baseLanguage) {
-      updatedField.languageVersions = updatedField.languageVersions.filter(
-        v => !(v.language === workingLanguage && v.version === version)
-      );
-    }
+
+    // Retirer de languageVersions pour la langue de travail
+    updatedField.languageVersions = updatedField.languageVersions.filter(
+      v => !(v.language === workingLanguage && v.version === version)
+    );
     
     // Effacer toutes les traductions de cette version dans TOUTES les langues (y compris l'ancienne langue principale)
     availableLanguages.forEach(targetLang => {
-      // Si c'est la langue de travail, on l'a déjà fait (sauf si c'est aussi la baseLanguage)
-      if (targetLang === workingLanguage && workingLanguage !== field.baseLanguage) {
+      // Si c'est la langue de travail, on l'a déjà fait
+      if (targetLang === workingLanguage) {
         return;
       }
       
-      // Si c'est la baseLanguage et que c'est aussi la langue de travail, on l'a déjà fait
-      if (targetLang === field.baseLanguage && workingLanguage === field.baseLanguage) {
+      // Si c'est la baseLanguage originale et que c'est aussi la langue principale actuelle, on l'a déjà fait dans aiVersions
+      if (targetLang === field.baseLanguage && targetLang === userBaseLanguage) {
         return;
+      }
+      
+      // Si c'est l'ancienne baseLanguage (mais n'est plus la langue principale actuelle), retirer de aiVersions
+      if (targetLang === field.baseLanguage && targetLang !== userBaseLanguage) {
+        updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
       }
       
       // Effacer dans languageVersions
@@ -757,8 +774,9 @@ const FieldEditor = ({
       updatedAt: now,
     };
     
-    // Si la langue de travail n'est pas la langue de base, mettre à jour aussi languageVersions
-    if (workingLanguage !== field.baseLanguage) {
+    // Si la langue de travail n'est pas la langue de base originale du champ, mettre à jour aussi languageVersions
+    // Mais si c'est la langue principale actuelle et que c'est aussi la baseLanguage originale, on l'a déjà fait dans aiVersions
+    if (workingLanguage !== field.baseLanguage || (workingLanguage === userBaseLanguage && workingLanguage !== field.baseLanguage)) {
       [1, 2, 3].forEach(version => {
         const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
         updatedField = addTranslationToField(updatedField, workingLanguage, value, version);
@@ -805,8 +823,9 @@ const FieldEditor = ({
         {/* Afficher d'abord la langue de travail */}
         {(() => {
           const language = workingLanguage;
-          // Pour la langue de travail, utiliser aiVersions si c'est la langue de base, sinon languageVersions
-          if (language === field.baseLanguage) {
+          // Pour la langue de travail, utiliser aiVersions si c'est la langue de base originale ET la langue principale actuelle
+          // Sinon, utiliser languageVersions
+          if (language === field.baseLanguage && language === userBaseLanguage) {
             return (
               <div key={language} className="language-version-row">
                 <div 

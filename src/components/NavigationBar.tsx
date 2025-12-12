@@ -14,6 +14,9 @@ const MODULES = [
   { id: 'justrpa', name: 'JustRPA', icon: '🤖' },
 ];
 
+// Récupérer la version depuis package.json
+const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.67.0';
+
 export const NavigationBar = ({ onModuleClick, onAIClick }: NavigationBarProps) => {
   return (
     <nav className="navigation-bar">
@@ -30,9 +33,12 @@ export const NavigationBar = ({ onModuleClick, onAIClick }: NavigationBarProps) 
           </button>
         ))}
       </div>
-      <button className="nav-ai-button" onClick={onAIClick} title="IA">
-        🤖 IA
-      </button>
+      <div className="nav-right-section">
+        <span className="nav-version">v{APP_VERSION}</span>
+        <button className="nav-ai-button" onClick={onAIClick} title="IA">
+          🤖 IA
+        </button>
+      </div>
     </nav>
   );
 };
