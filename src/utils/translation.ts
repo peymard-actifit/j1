@@ -81,6 +81,18 @@ export const addTranslationToField = (
   value: string,
   version: number = 1
 ): UserDataField => {
+  // Si la valeur est vide, supprimer la traduction
+  if (!value || value.trim() === '') {
+    const updatedVersions = field.languageVersions.filter(
+      v => !(v.language === language && v.version === version)
+    );
+    return {
+      ...field,
+      languageVersions: updatedVersions,
+      updatedAt: new Date().toISOString(),
+    };
+  }
+
   // Vérifier si la traduction existe déjà pour cette version
   const existingIndex = field.languageVersions.findIndex(
     v => v.language === language && v.version === version

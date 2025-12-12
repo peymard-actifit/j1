@@ -405,11 +405,13 @@ const FieldEditor = ({
     
     // Initialiser les traductions automatiques stockées depuis les languageVersions existantes
     // Cela permet de détecter les modifications manuelles
+    // Mais seulement si elles n'ont pas été modifiées manuellement
     field.languageVersions.forEach(lv => {
       if (!autoTranslationsRef.current[lv.language]) {
         autoTranslationsRef.current[lv.language] = {};
       }
       // Si la traduction auto n'est pas encore stockée, la stocker
+      // Mais seulement si elle correspond à une traduction automatique (pas modifiée manuellement)
       if (!autoTranslationsRef.current[lv.language][lv.version]) {
         autoTranslationsRef.current[lv.language][lv.version] = lv.value;
       }
@@ -417,7 +419,7 @@ const FieldEditor = ({
     
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
-  }, [field.id, field.languageVersions.length]); // Utiliser la longueur pour éviter les re-renders inutiles
+  }, [field.id, field.languageVersions.length, field.aiVersions.length]); // Ajouter aiVersions.length pour détecter les changements
 
   // Traduire automatiquement toutes les langues quand on modifie une version FR
   useEffect(() => {
@@ -625,34 +627,42 @@ const FieldEditor = ({
                             rows={2}
                             placeholder={`Version ${version}`}
                           />
-                          {value && (
-                            <button
-                              className="clear-version-button"
-                              onClick={() => {
-                                // Effacer la version FR
-                                if (version === 1) setVersion1Value('');
-                                else if (version === 2) setVersion2Value('');
-                                else setVersion3Value('');
-                                
-                                // Effacer toutes les traductions de cette version
-                                let updatedField = { ...field };
-                                const languagesToClear = availableLanguages.filter(lang => lang !== field.baseLanguage);
-                                languagesToClear.forEach(targetLang => {
-                                  const existingIndex = updatedField.languageVersions.findIndex(
-                                    v => v.language === targetLang && v.version === version
-                                  );
-                                  if (existingIndex >= 0) {
-                                    updatedField.languageVersions.splice(existingIndex, 1);
-                                  }
-                                });
-                                updatedField.languageVersions = [...updatedField.languageVersions];
-                                onSave(updatedField);
-                              }}
-                              title="Effacer cette version et toutes ses traductions"
-                            >
-                              ✕
-                            </button>
-                          )}
+                          <button
+                            className="clear-version-button"
+                            onClick={() => {
+                              // Effacer la version FR dans le state
+                              if (version === 1) setVersion1Value('');
+                              else if (version === 2) setVersion2Value('');
+                              else setVersion3Value('');
+                              
+                              // Effacer toutes les traductions de cette version
+                              let updatedField = { ...field };
+                              
+                              // Effacer la version FR dans aiVersions
+                              updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
+                              
+                              // Effacer toutes les traductions de cette version dans toutes les langues
+                              const languagesToClear = availableLanguages.filter(lang => lang !== field.baseLanguage);
+                              languagesToClear.forEach(targetLang => {
+                                const existingIndex = updatedField.languageVersions.findIndex(
+                                  v => v.language === targetLang && v.version === version
+                                );
+                                if (existingIndex >= 0) {
+                                  updatedField.languageVersions.splice(existingIndex, 1);
+                                }
+                                // Effacer aussi la traduction auto stockée
+                                if (autoTranslationsRef.current[targetLang]) {
+                                  delete autoTranslationsRef.current[targetLang][version];
+                                }
+                              });
+                              updatedField.languageVersions = [...updatedField.languageVersions];
+                              updatedField.updatedAt = new Date().toISOString();
+                              onSave(updatedField);
+                            }}
+                            title="Effacer cette version et toutes ses traductions"
+                          >
+                            ✕
+                          </button>
                         </div>
                       </div>
                     );
@@ -685,7 +695,7 @@ const FieldEditor = ({
                       <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
                         <textarea
                           value={currentValue}
-                          onChange={(e) => {
+                          onChange={async (e) => {
                             const newValue = e.target.value;
                             const updatedField = addTranslationToField(field, language, newValue, version);
                             
@@ -706,7 +716,8 @@ const FieldEditor = ({
                               }
                             }
                             
-                            onSave(updatedField);
+                            // Sauvegarder immédiatement
+                            await onSave(updatedField);
                           }}
                           rows={2}
                           placeholder={`Version ${version}`}
