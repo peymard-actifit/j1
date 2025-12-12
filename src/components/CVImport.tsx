@@ -81,29 +81,6 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     }
   };
 
-  const readFileContent = async (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        // Pour les PDF, extraire le texte si possible
-        if (file.type === 'application/pdf') {
-          // Pour l'instant, on envoie le base64, l'API devra le gérer
-          resolve(result);
-        } else {
-          resolve(result);
-        }
-      };
-      reader.onerror = reject;
-      
-      if (file.type === 'application/pdf') {
-        reader.readAsDataURL(file);
-      } else {
-        reader.readAsText(file);
-      }
-    });
-  };
-
   const generateAutoMappings = (extracted: ExtractedData, fields: UserDataField[]): FieldMapping[] => {
     const mappings: FieldMapping[] = [];
     const baseLanguage = user?.baseLanguage || 'fr';
