@@ -688,21 +688,27 @@ const FieldEditor = ({
                           />
                           <button
                             className="clear-version-button"
-                            onClick={() => {
-                              // Effacer la version FR dans le state
+                            onClick={async () => {
+                              // Effacer la version dans le state
                               if (version === 1) setVersion1Value('');
                               else if (version === 2) setVersion2Value('');
                               else setVersion3Value('');
                               
-                              // Effacer toutes les traductions de cette version
+                              // Effacer toutes les traductions de cette version pour TOUTES les langues
                               let updatedField = { ...field };
                               
-                              // Effacer la version FR dans aiVersions
-                              updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
+                              // Effacer la version dans aiVersions si c'est la langue de base
+                              if (language === field.baseLanguage) {
+                                updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
+                              }
                               
-                              // Effacer toutes les traductions de cette version dans toutes les langues
-                              const languagesToClear = availableLanguages.filter(lang => lang !== field.baseLanguage);
-                              languagesToClear.forEach(targetLang => {
+                              // Effacer toutes les traductions de cette version dans TOUTES les langues (y compris la langue de travail si ce n'est pas la base)
+                              availableLanguages.forEach(targetLang => {
+                                // Si c'est la langue de base et qu'on est en train d'effacer, on l'a déjà fait
+                                if (targetLang === field.baseLanguage && language === field.baseLanguage) {
+                                  return;
+                                }
+                                
                                 const existingIndex = updatedField.languageVersions.findIndex(
                                   v => v.language === targetLang && v.version === version
                                 );
@@ -714,11 +720,12 @@ const FieldEditor = ({
                                   delete autoTranslationsRef.current[targetLang][version];
                                 }
                               });
+                              
                               updatedField.languageVersions = [...updatedField.languageVersions];
                               updatedField.updatedAt = new Date().toISOString();
-                              onSave(updatedField);
+                              await onSave(updatedField);
                             }}
-                            title="Effacer cette version et toutes ses traductions"
+                            title="Effacer cette version et toutes ses traductions dans toutes les langues"
                           >
                             ✕
                           </button>
@@ -789,22 +796,43 @@ const FieldEditor = ({
                           <button
                             className="clear-version-button"
                             onClick={async () => {
+                              // Effacer la version dans le state
                               if (version === 1) setVersion1Value('');
                               else if (version === 2) setVersion2Value('');
                               else setVersion3Value('');
                               
+                              // Effacer toutes les traductions de cette version pour TOUTES les langues
                               let updatedField = { ...field };
-                              const existingIndex = updatedField.languageVersions.findIndex(
-                                v => v.language === language && v.version === version
-                              );
-                              if (existingIndex >= 0) {
-                                updatedField.languageVersions.splice(existingIndex, 1);
+                              
+                              // Effacer la version dans aiVersions si c'est la langue de base
+                              if (language === field.baseLanguage) {
+                                updatedField.aiVersions = updatedField.aiVersions.filter(v => v.version !== version);
                               }
+                              
+                              // Effacer toutes les traductions de cette version dans TOUTES les langues
+                              availableLanguages.forEach(targetLang => {
+                                // Si c'est la langue de base et qu'on est en train d'effacer, on l'a déjà fait
+                                if (targetLang === field.baseLanguage && language === field.baseLanguage) {
+                                  return;
+                                }
+                                
+                                const existingIndex = updatedField.languageVersions.findIndex(
+                                  v => v.language === targetLang && v.version === version
+                                );
+                                if (existingIndex >= 0) {
+                                  updatedField.languageVersions.splice(existingIndex, 1);
+                                }
+                                // Effacer aussi la traduction auto stockée
+                                if (autoTranslationsRef.current[targetLang]) {
+                                  delete autoTranslationsRef.current[targetLang][version];
+                                }
+                              });
+                              
                               updatedField.languageVersions = [...updatedField.languageVersions];
                               updatedField.updatedAt = new Date().toISOString();
                               await onSave(updatedField);
                             }}
-                            title="Effacer cette version et toutes ses traductions"
+                            title="Effacer cette version et toutes ses traductions dans toutes les langues"
                           >
                             ✕
                           </button>
