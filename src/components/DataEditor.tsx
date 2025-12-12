@@ -16,28 +16,39 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   // Langue de travail (peut être différente de la baseLanguage de chaque champ)
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
 
+  // Initialiser workingLanguage une seule fois au chargement
+  useEffect(() => {
+    if (user && !workingLanguage) {
+      setWorkingLanguage(user.baseLanguage || 'fr');
+    }
+  }, [user?.id]); // Seulement au chargement initial
+
   useEffect(() => {
     if (user) {
       setFields(user.data || []);
-      setWorkingLanguage(user.baseLanguage || 'fr');
       // Traduire automatiquement tous les champs au chargement si les traductions n'existent pas
       translateAllFieldsOnLoad(user.data || []);
     }
-  }, [user]);
+  }, [user?.id, user?.data]); // Utiliser user.id et user.data au lieu de user pour éviter les re-renders inutiles
 
   // Fonction pour changer la langue de travail
   const handleChangeWorkingLanguage = async (newLanguage: string) => {
     if (!user || !setUser) return;
+    if (newLanguage === workingLanguage) return; // Éviter les changements inutiles
     
+    // Mettre à jour immédiatement le state local
     setWorkingLanguage(newLanguage);
     
     // Mettre à jour la baseLanguage de l'utilisateur
     const updatedUser = { ...user, baseLanguage: newLanguage };
     try {
       const savedUser = await storage.saveUser(updatedUser);
+      // Mettre à jour le user dans le contexte, mais ne pas réinitialiser workingLanguage
       setUser(savedUser);
     } catch (error) {
       console.error('Error updating working language:', error);
+      // En cas d'erreur, restaurer l'ancienne langue
+      setWorkingLanguage(user.baseLanguage || 'fr');
     }
   };
 
@@ -746,11 +757,31 @@ const FieldEditor = ({
                         <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
                           <textarea
                             value={currentValue}
-                            onChange={(e) => {
+                            onChange={async (e) => {
                               const newValue = e.target.value;
+                              // Mettre à jour le state local pour l'affichage immédiat
                               if (version === 1) setVersion1Value(newValue);
                               else if (version === 2) setVersion2Value(newValue);
                               else setVersion3Value(newValue);
+                              
+                              // Sauvegarder immédiatement dans la base de données
+                              const updatedField = addTranslationToField(field, language, newValue, version);
+                              
+                              // Gérer les traductions automatiques
+                              if (autoTranslation && newValue !== autoTranslation) {
+                                // Modification manuelle, garder la traduction auto pour réinitialisation
+                              } else if (!autoTranslation && newValue) {
+                                if (!autoTranslationsRef.current[language]) {
+                                  autoTranslationsRef.current[language] = {};
+                                }
+                                autoTranslationsRef.current[language][version] = newValue;
+                              } else if (newValue === '' && autoTranslation) {
+                                if (autoTranslationsRef.current[language]) {
+                                  delete autoTranslationsRef.current[language][version];
+                                }
+                              }
+                              
+                              await onSave(updatedField);
                             }}
                             rows={2}
                             placeholder={`Version ${version}`}
