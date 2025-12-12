@@ -214,7 +214,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                 className="field-filter-input"
               />
               <button onClick={() => setShowAddField(true)} className="add-field-button">
-                + Ajouter un champ
+                + Champ
               </button>
             </div>
             {showAddField && (
@@ -353,6 +353,32 @@ const FieldEditor = ({
     'tr', // Turc
     'uk', // Ukrainien
   ];
+
+  // Mapping des codes de langue vers leurs noms en français
+  const languageNames: Record<string, string> = {
+    'fr': 'Français',
+    'en': 'Anglais',
+    'es': 'Espagnol',
+    'de': 'Allemand',
+    'it': 'Italien',
+    'pt': 'Portugais',
+    'nl': 'Néerlandais',
+    'pl': 'Polonais',
+    'ru': 'Russe',
+    'ja': 'Japonais',
+    'zh': 'Chinois',
+    'ko': 'Coréen',
+    'ar': 'Arabe',
+    'cs': 'Tchèque',
+    'da': 'Danois',
+    'el': 'Grec',
+    'hu': 'Hongrois',
+    'id': 'Indonésien',
+    'nb': 'Norvégien',
+    'sv': 'Suédois',
+    'tr': 'Turc',
+    'uk': 'Ukrainien',
+  };
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
   const prevVersion1Ref = useRef<string>('');
@@ -550,7 +576,9 @@ const FieldEditor = ({
           if (language === field.baseLanguage) {
             return (
               <div key={language} className="language-version-group">
-                <h5 className="language-group-header">{language.toUpperCase()}</h5>
+                <h5 className="language-group-header">
+                  {language.toUpperCase()} ({languageNames[language] || language})
+                </h5>
                 <div className="language-versions-row">
                   {[1, 2, 3].map(version => {
                     const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
@@ -583,7 +611,9 @@ const FieldEditor = ({
           
           return (
             <div key={language} className="language-version-group">
-              <h5 className="language-group-header">{language.toUpperCase()}</h5>
+              <h5 className="language-group-header">
+                {language.toUpperCase()} ({languageNames[language] || language})
+              </h5>
               <div className="language-versions-row">
                 {[1, 2, 3].map(version => {
                   const versionData = versions.find(v => v.version === version);
