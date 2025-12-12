@@ -17,8 +17,64 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   useEffect(() => {
     if (user) {
       setFields(user.data || []);
+      // Traduire automatiquement tous les champs au chargement si les traductions n'existent pas
+      translateAllFieldsOnLoad(user.data || []);
     }
   }, [user]);
+
+  const translateAllFieldsOnLoad = async (fieldsToTranslate: UserDataField[]) => {
+    if (!user || !setUser) return;
+    
+    const availableLanguages = [
+      'fr', 'en', 'es', 'de', 'it', 'pt', 'nl', 'pl', 'ru', 'ja', 'zh', 'ko',
+      'ar', 'cs', 'da', 'el', 'hu', 'id', 'nb', 'sv', 'tr', 'uk',
+    ];
+    
+    let hasUpdates = false;
+    const updatedFields = await Promise.all(fieldsToTranslate.map(async (field) => {
+      let updatedField = { ...field };
+      const languagesToTranslate = availableLanguages.filter(lang => lang !== field.baseLanguage);
+      
+      for (const targetLang of languagesToTranslate) {
+        for (let version = 1; version <= 3; version++) {
+          // Vérifier si la traduction existe déjà
+          const existingTranslation = field.languageVersions.find(
+            v => v.language === targetLang && v.version === version
+          );
+          
+          // Si la traduction n'existe pas, la créer
+          if (!existingTranslation) {
+            const sourceValue = field.aiVersions.find(v => v.version === version)?.value;
+            
+            if (sourceValue && sourceValue.trim()) {
+              try {
+                const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
+                if (translationResult.success) {
+                  updatedField = addTranslationToField(updatedField, targetLang, translationResult.text, version);
+                  hasUpdates = true;
+                }
+              } catch (error: any) {
+                console.error(`Error translating ${targetLang} version ${version} for field ${field.id}:`, error);
+              }
+            }
+          }
+        }
+      }
+      
+      return updatedField;
+    }));
+
+    if (hasUpdates) {
+      setFields(updatedFields);
+      try {
+        const updatedUser = { ...user, data: updatedFields };
+        const savedUser = await storage.saveUser(updatedUser);
+        setUser(savedUser);
+      } catch (error) {
+        console.error('Error saving translations:', error);
+      }
+    }
+  };
 
   const handleAddField = () => {
     const newField: UserDataField = {
@@ -105,22 +161,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  // Fonction pour compter le nombre de valeurs non vides dans un champ
-  const countNonEmptyValues = (field: UserDataField): number => {
-    let count = 0;
-    
-    // Compter les versions AI (langue de base)
-    field.aiVersions?.forEach(v => {
-      if (v.value && v.value.trim()) count++;
-    });
-    
-    // Compter les versions de langue
-    field.languageVersions?.forEach(lv => {
-      if (lv.value && lv.value.trim()) count++;
-    });
-    
-    return count;
-  };
 
   // Filtrer les champs selon le texte de recherche
   const filteredFields = fields.filter(field => {
@@ -216,9 +256,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                     }
                   }
                   
-                  const nonEmptyCount = countNonEmptyValues(field);
-                  const additionalCount = nonEmptyCount > 1 ? nonEmptyCount - 1 : 0;
-                  
                   return (
                     <div
                       key={field.id}
@@ -235,9 +272,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                         <span className="field-value-preview">{firstValue || '(vide)'}</span>
                       </div>
                       <div className="field-item-actions">
-                        {additionalCount > 0 && (
-                          <span className="additional-values-count">({additionalCount})</span>
-                        )}
                         <button
                           className="delete-field-button"
                           onClick={(e) => {
