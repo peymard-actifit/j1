@@ -477,11 +477,29 @@ const FieldEditor = ({
   // Stocker les traductions automatiques pour détecter les modifications manuelles
   const autoTranslationsRef = useRef<Record<string, Record<number, string>>>({});
 
-  // Mettre à jour les états quand le champ change
+  // Récupérer les valeurs de la langue de travail
+  const getWorkingLanguageValues = () => {
+    if (workingLanguage === field.baseLanguage) {
+      // Si la langue de travail est la langue de base, utiliser aiVersions
+      return {
+        v1: field.aiVersions.find(v => v.version === 1)?.value || '',
+        v2: field.aiVersions.find(v => v.version === 2)?.value || '',
+        v3: field.aiVersions.find(v => v.version === 3)?.value || '',
+      };
+    } else {
+      // Sinon, utiliser languageVersions
+      const versions = field.languageVersions.filter(v => v.language === workingLanguage);
+      return {
+        v1: versions.find(v => v.version === 1)?.value || '',
+        v2: versions.find(v => v.version === 2)?.value || '',
+        v3: versions.find(v => v.version === 3)?.value || '',
+      };
+    }
+  };
+
+  // Mettre à jour les états quand le champ change ou la langue de travail change
   useEffect(() => {
-    const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
-    const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
-    const v3 = field.aiVersions.find(v => v.version === 3)?.value || '';
+    const { v1, v2, v3 } = getWorkingLanguageValues();
     
     setName(field.name);
     setTag(field.tag);
@@ -509,7 +527,7 @@ const FieldEditor = ({
     
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
-  }, [field.id, field.languageVersions.length, field.aiVersions.length]); // Ajouter aiVersions.length pour détecter les changements
+  }, [field.id, field.languageVersions.length, field.aiVersions.length, workingLanguage]); // Ajouter workingLanguage
 
   // Traduire automatiquement toutes les langues quand on modifie la langue de travail
   useEffect(() => {
