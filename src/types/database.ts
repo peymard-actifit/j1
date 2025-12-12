@@ -2,8 +2,10 @@
 
 export interface LanguageVersion {
   language: string;
+  version: number; // 1, 2 ou 3 - trois versions par langue
   value: string;
   createdAt: string;
+  prompt?: string;
 }
 
 export interface AIVersion {

@@ -231,25 +231,38 @@ const FieldEditor = ({
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
+  // Récupérer la valeur de base depuis aiVersions (version 1 par défaut)
   const [baseValue, setBaseValue] = useState(
-    field.languageVersions.find(v => v.language === field.baseLanguage)?.value || ''
+    field.aiVersions.find(v => v.version === 1)?.value || ''
   );
   const [newLanguage, setNewLanguage] = useState('');
   const [newLanguageValue, setNewLanguageValue] = useState('');
 
   const handleSave = () => {
+    // Mettre à jour aiVersions pour la langue de base (version 1)
+    const updatedAiVersions = [...(field.aiVersions || [])];
+    const existingVersion1 = updatedAiVersions.findIndex(v => v.version === 1);
+    
+    if (existingVersion1 >= 0) {
+      updatedAiVersions[existingVersion1] = {
+        ...updatedAiVersions[existingVersion1],
+        value: baseValue,
+        createdAt: new Date().toISOString(),
+      };
+    } else {
+      updatedAiVersions.push({
+        version: 1,
+        value: baseValue,
+        createdAt: new Date().toISOString(),
+      });
+      updatedAiVersions.sort((a, b) => a.version - b.version);
+    }
+
     const updatedField: UserDataField = {
       ...field,
       name,
       tag,
-      languageVersions: [
-        ...field.languageVersions.filter(v => v.language !== field.baseLanguage),
-        {
-          language: field.baseLanguage,
-          value: baseValue,
-          createdAt: new Date().toISOString(),
-        },
-      ],
+      aiVersions: updatedAiVersions,
       updatedAt: new Date().toISOString(),
     };
     onSave(updatedField);

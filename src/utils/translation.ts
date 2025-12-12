@@ -5,20 +5,20 @@ import { UserDataField, LanguageVersion } from '../types/database';
 
 export const translateField = async (
   field: UserDataField,
-  targetLang: string
+  targetLang: string,
+  version: number = 1
 ): Promise<string> => {
-  // Récupérer la valeur dans la langue de base
-  const baseValue = field.languageVersions.find(
-    v => v.language === field.baseLanguage
-  )?.value || '';
+  // Récupérer la valeur dans la langue de base (version 1 par défaut)
+  const baseValue = field.aiVersions.find(v => v.version === version)?.value || 
+                    field.aiVersions.find(v => v.version === 1)?.value || '';
 
   if (!baseValue) {
     throw new Error('Aucune valeur de base trouvée pour ce champ');
   }
 
-  // Vérifier si la traduction existe déjà
+  // Vérifier si la traduction existe déjà pour cette version
   const existingTranslation = field.languageVersions.find(
-    v => v.language === targetLang
+    v => v.language === targetLang && v.version === version
   );
 
   if (existingTranslation) {
@@ -37,16 +37,16 @@ export const translateField = async (
 
 export const translateAllFields = async (
   fields: UserDataField[],
-  targetLang: string
+  targetLang: string,
+  version: number = 1
 ): Promise<Record<string, string>> => {
-  // Récupérer toutes les valeurs de base
+  // Récupérer toutes les valeurs de base (version spécifiée)
   const textsToTranslate: string[] = [];
   const fieldIds: string[] = [];
 
   fields.forEach(field => {
-    const baseValue = field.languageVersions.find(
-      v => v.language === field.baseLanguage
-    )?.value || '';
+    const baseValue = field.aiVersions.find(v => v.version === version)?.value || 
+                      field.aiVersions.find(v => v.version === 1)?.value || '';
 
     if (baseValue) {
       textsToTranslate.push(baseValue);
@@ -78,15 +78,17 @@ export const translateAllFields = async (
 export const addTranslationToField = (
   field: UserDataField,
   language: string,
-  value: string
+  value: string,
+  version: number = 1
 ): UserDataField => {
-  // Vérifier si la traduction existe déjà
+  // Vérifier si la traduction existe déjà pour cette version
   const existingIndex = field.languageVersions.findIndex(
-    v => v.language === language
+    v => v.language === language && v.version === version
   );
 
   const newVersion: LanguageVersion = {
     language,
+    version,
     value,
     createdAt: new Date().toISOString(),
   };
@@ -94,6 +96,14 @@ export const addTranslationToField = (
   const updatedVersions = existingIndex >= 0
     ? field.languageVersions.map((v, idx) => idx === existingIndex ? newVersion : v)
     : [...field.languageVersions, newVersion];
+
+  // Trier par langue puis par version
+  updatedVersions.sort((a, b) => {
+    if (a.language !== b.language) {
+      return a.language.localeCompare(b.language);
+    }
+    return a.version - b.version;
+  });
 
   return {
     ...field,

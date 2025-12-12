@@ -299,6 +299,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
         if (!field) return;
 
         // Mettre à jour la valeur de base ou ajouter une version de langue
+        // Toutes les langues (y compris la langue de base) ont maintenant 3 versions possibles
         if (mapping.targetLanguage === field.baseLanguage) {
           // Pour la langue de base, utiliser aiVersions (versions 1, 2 ou 3)
           if (!field.aiVersions) {
@@ -319,14 +320,13 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
             field.aiVersions.sort((a, b) => a.version - b.version);
           }
         } else {
-          // Pour les autres langues, utiliser languageVersions
-          // Note: Pour l'instant, une seule valeur par langue, mais on peut étendre plus tard
+          // Pour les autres langues, utiliser languageVersions avec 3 versions possibles (1, 2 ou 3)
           if (!field.languageVersions) {
             field.languageVersions = [];
           }
           
           const existingLangVersion = field.languageVersions.find(
-            lv => lv.language === mapping.targetLanguage
+            lv => lv.language === mapping.targetLanguage && lv.version === mapping.targetVersion
           );
           if (existingLangVersion) {
             existingLangVersion.value = mapping.extractedValue;
@@ -334,8 +334,16 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
           } else {
             field.languageVersions.push({
               language: mapping.targetLanguage,
+              version: mapping.targetVersion,
               value: mapping.extractedValue,
               createdAt: new Date().toISOString(),
+            });
+            // Trier par langue puis par version
+            field.languageVersions.sort((a, b) => {
+              if (a.language !== b.language) {
+                return a.language.localeCompare(b.language);
+              }
+              return a.version - b.version;
             });
           }
         }
@@ -451,80 +459,102 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                 {mappings.length === 0 ? (
                   <p className="no-mappings">Aucune correspondance automatique trouvée. Vous pouvez ajouter manuellement des mappings.</p>
                 ) : (
-                  mappings.map((mapping, index) => (
-                    <div key={index} className={`mapping-item ${mapping.confirmed ? 'confirmed' : ''}`}>
-                      <div className="mapping-source">
-                        <strong>Source:</strong> {mapping.extractedKey}
-                        <div className="source-value">{mapping.extractedValue}</div>
-                      </div>
-                      
-                      <div className="mapping-target">
-                        <label>
-                          Champ:
-                          <select
-                            value={mapping.fieldId}
-                            onChange={(e) => handleMappingChange(index, { fieldId: e.target.value })}
-                            disabled={mapping.confirmed}
-                          >
-                            <option value="">Sélectionner un champ</option>
-                            {userFields.map(field => (
-                              <option key={field.id} value={field.id}>{field.name} ({field.tag})</option>
-                            ))}
-                          </select>
-                        </label>
-
-                        <div className="mapping-target-row">
-                          <label>
-                            Langue:
-                            <select
-                              value={mapping.targetLanguage}
-                              onChange={(e) => handleMappingChange(index, { targetLanguage: e.target.value })}
-                              disabled={mapping.confirmed}
-                            >
-                              {getAvailableLanguages().map(lang => (
-                                <option key={lang} value={lang}>{lang.toUpperCase()}</option>
-                              ))}
-                            </select>
-                          </label>
-
-                          <label>
-                            Version (1, 2 ou 3):
-                            <select
-                              value={mapping.targetVersion}
-                              onChange={(e) => handleMappingChange(index, { targetVersion: parseInt(e.target.value) as 1 | 2 | 3 })}
-                              disabled={mapping.confirmed}
-                            >
-                              <option value="1">Version 1</option>
-                              <option value="2">Version 2</option>
-                              <option value="3">Version 3</option>
-                            </select>
-                          </label>
-                        </div>
-                      </div>
-
-                      <div className="mapping-actions">
-                        {!mapping.confirmed ? (
-                          <button
-                            onClick={() => handleConfirmMapping(index)}
-                            className="button-confirm"
-                            disabled={!mapping.fieldId}
-                          >
-                            ✓ Valider
-                          </button>
-                        ) : (
-                          <div className="mapping-confirmed">
-                            <span className="confirmed-badge">✓ Validé</span>
-                            <button
-                              onClick={() => handleMappingChange(index, { confirmed: false })}
-                              className="button-edit"
-                            >
-                              Modifier
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))
+                  <div className="mappings-table-container">
+                    <table className="mappings-table">
+                      <thead>
+                        <tr>
+                          <th>Donnée extraite</th>
+                          <th>Valeur</th>
+                          <th>Champ cible</th>
+                          <th>Langue</th>
+                          <th>Version</th>
+                          <th>Action</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {mappings.map((mapping, index) => (
+                          <tr key={index} className={`mapping-row ${mapping.confirmed ? 'confirmed' : ''}`}>
+                            <td className="mapping-source-cell">
+                              <strong>{mapping.extractedKey}</strong>
+                            </td>
+                            <td className="mapping-value-cell">
+                              <div className="source-value-preview" title={mapping.extractedValue}>
+                                {mapping.extractedValue.length > 50 
+                                  ? mapping.extractedValue.substring(0, 50) + '...' 
+                                  : mapping.extractedValue}
+                              </div>
+                            </td>
+                            <td className="mapping-field-cell">
+                              <select
+                                value={mapping.fieldId}
+                                onChange={(e) => handleMappingChange(index, { fieldId: e.target.value })}
+                                disabled={mapping.confirmed}
+                                className="field-select"
+                              >
+                                <option value="">-- Sélectionner --</option>
+                                {userFields.map(field => (
+                                  <option key={field.id} value={field.id}>
+                                    {field.name} ({field.tag})
+                                  </option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="mapping-lang-cell">
+                              <select
+                                value={mapping.targetLanguage}
+                                onChange={(e) => handleMappingChange(index, { targetLanguage: e.target.value })}
+                                disabled={mapping.confirmed}
+                                className="lang-select"
+                              >
+                                {getAvailableLanguages().map(lang => (
+                                  <option key={lang} value={lang}>{lang.toUpperCase()}</option>
+                                ))}
+                              </select>
+                            </td>
+                            <td className="mapping-version-cell">
+                              <div className="version-buttons">
+                                {[1, 2, 3].map(version => (
+                                  <button
+                                    key={version}
+                                    type="button"
+                                    className={`version-button ${mapping.targetVersion === version ? 'active' : ''}`}
+                                    onClick={() => handleMappingChange(index, { targetVersion: version as 1 | 2 | 3 })}
+                                    disabled={mapping.confirmed}
+                                    title={`Version ${version}`}
+                                  >
+                                    {version}
+                                  </button>
+                                ))}
+                              </div>
+                            </td>
+                            <td className="mapping-action-cell">
+                              {!mapping.confirmed ? (
+                                <button
+                                  onClick={() => handleConfirmMapping(index)}
+                                  className="button-confirm-small"
+                                  disabled={!mapping.fieldId}
+                                  title="Valider ce mapping"
+                                >
+                                  ✓
+                                </button>
+                              ) : (
+                                <div className="mapping-confirmed-small">
+                                  <span className="confirmed-badge-small" title="Validé">✓</span>
+                                  <button
+                                    onClick={() => handleMappingChange(index, { confirmed: false })}
+                                    className="button-edit-small"
+                                    title="Modifier"
+                                  >
+                                    ✎
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
                 )}
               </div>
 
