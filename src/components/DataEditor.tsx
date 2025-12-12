@@ -472,7 +472,8 @@ const FieldEditor = ({
     return () => clearTimeout(timeoutId);
   }, [version1Value, version2Value, version3Value, isInitialLoad, field.id]);
 
-  const handleSave = () => {
+  // Auto-sauvegarde automatique
+  const autoSave = () => {
     // Mettre à jour les 3 versions dans aiVersions
     const updatedAiVersions = [...(field.aiVersions || [])];
     const now = new Date().toISOString();
@@ -508,30 +509,38 @@ const FieldEditor = ({
     onSave(updatedField);
   };
 
+  // Auto-sauvegarde lors des changements de name, tag ou versions
+  useEffect(() => {
+    if (isInitialLoad) return;
+    
+    const timeoutId = setTimeout(() => {
+      autoSave();
+    }, 1000); // Sauvegarder 1 seconde après la dernière modification
+
+    return () => clearTimeout(timeoutId);
+  }, [name, tag, version1Value, version2Value, version3Value, isInitialLoad]);
+
 
   return (
     <div className="field-editor-content">
-      <div className="field-editor-header-fixed">
-        <button onClick={handleSave} className="save-button">
-          Enregistrer
-        </button>
-      </div>
       <div className="field-editor-form">
-        <div className="form-group">
-          <label>Nom du champ</label>
-          <input
-            type="text"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </div>
-        <div className="form-group">
-          <label>Tag</label>
-          <input
-            type="text"
-            value={tag}
-            onChange={(e) => setTag(e.target.value)}
-          />
+        <div className="form-group-inline">
+          <div className="form-field-inline">
+            <label>Nom du champ</label>
+            <input
+              type="text"
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+            />
+          </div>
+          <div className="form-field-inline">
+            <label>Tag</label>
+            <input
+              type="text"
+              value={tag}
+              onChange={(e) => setTag(e.target.value)}
+            />
+          </div>
         </div>
       </div>
 
