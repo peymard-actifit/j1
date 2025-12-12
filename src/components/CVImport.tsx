@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { analyzeCVFile } from '../utils/ai';
+import { CVDragDropMapper } from './CVDragDropMapper';
 import './CVImport.css';
 
 interface CVImportProps {
@@ -31,7 +32,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
   const [mappings, setMappings] = useState<FieldMapping[]>([]);
   const [userFields, setUserFields] = useState<UserDataField[]>([]);
   const [error, setError] = useState('');
-  const [step, setStep] = useState<'select' | 'analyze' | 'map' | 'saving'>('select');
+  const [step, setStep] = useState<'select' | 'analyze' | 'map' | 'dragdrop' | 'saving'>('select');
 
   useEffect(() => {
     if (user) {
@@ -72,7 +73,8 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
       // Générer des mappings automatiques
       const autoMappings = generateAutoMappings(analysis, userFields);
       setMappings(autoMappings);
-      setStep('map');
+      // Proposer le mode drag & drop après l'analyse
+      setStep('dragdrop');
     } catch (err: any) {
       setError(err.message || 'Erreur lors de l\'analyse du CV');
       setStep('select');
@@ -514,6 +516,15 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                 <p className="loading-subtitle">Extraction des données avec l'IA</p>
               </div>
             </div>
+          )}
+
+          {step === 'dragdrop' && extractedData && (
+            <CVDragDropMapper
+              extractedData={extractedData}
+              userFields={userFields}
+              onComplete={onComplete}
+              onCancel={() => setStep('select')}
+            />
           )}
 
           {step === 'map' && extractedData && (
