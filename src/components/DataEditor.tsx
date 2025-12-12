@@ -3,6 +3,7 @@ import { UserDataField } from '../types/database';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
 import { addTranslationToField } from '../utils/translation';
+import { api } from '../utils/api';
 import './DataEditor.css';
 
 export const DataEditor = ({ onClose }: { onClose: () => void }) => {
@@ -375,8 +376,6 @@ const FieldEditor = ({
           if (valueChanged && sourceValue && sourceValue.trim()) {
             try {
               // Traduire directement depuis la valeur source actuelle
-              // Utiliser l'API de traduction directement
-              const { api } = await import('../utils/api');
               const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
               
               if (!translationResult.success) {
