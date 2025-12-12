@@ -15,10 +15,6 @@ interface UserField {
   languageVersions?: Array<{ language: string; version: number; value: string }>;
 }
 
-interface ExtractedData {
-  [key: string]: any;
-}
-
 interface FieldMatch {
   extractedKey: string;
   extractedValue: string;
