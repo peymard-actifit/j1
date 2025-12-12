@@ -12,6 +12,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   const [showAddField, setShowAddField] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [showTranslateModal, setShowTranslateModal] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -79,6 +80,60 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     }
     setDraggedIndex(null);
   };
+
+  const handleDeleteField = async (fieldId: string) => {
+    if (!confirm('Êtes-vous sûr de vouloir supprimer ce champ ?')) {
+      return;
+    }
+
+    const updatedFields = fields.filter(f => f.id !== fieldId);
+    setFields(updatedFields);
+    
+    if (selectedField?.id === fieldId) {
+      setSelectedField(null);
+    }
+
+    if (user && setUser) {
+      try {
+        const updatedUser = { ...user, data: updatedFields };
+        const savedUser = await storage.saveUser(updatedUser);
+        setUser(savedUser);
+      } catch (error) {
+        console.error('Error deleting field:', error);
+        alert('Erreur lors de la suppression du champ');
+      }
+    }
+  };
+
+  // Fonction pour compter le nombre de valeurs non vides dans un champ
+  const countNonEmptyValues = (field: UserDataField): number => {
+    let count = 0;
+    
+    // Compter les versions AI (langue de base)
+    field.aiVersions?.forEach(v => {
+      if (v.value && v.value.trim()) count++;
+    });
+    
+    // Compter les versions de langue
+    field.languageVersions?.forEach(lv => {
+      if (lv.value && lv.value.trim()) count++;
+    });
+    
+    return count;
+  };
+
+  // Filtrer les champs selon le texte de recherche
+  const filteredFields = fields.filter(field => {
+    if (!filterText) return true;
+    const searchLower = filterText.toLowerCase();
+    return (
+      field.name.toLowerCase().includes(searchLower) ||
+      field.tag.toLowerCase().includes(searchLower) ||
+      field.id.toLowerCase().includes(searchLower) ||
+      (field.aiVersions?.some(v => v.value?.toLowerCase().includes(searchLower))) ||
+      (field.languageVersions?.some(lv => lv.value?.toLowerCase().includes(searchLower)))
+    );
+  });
 
   const handleAddLanguageVersion = async (fieldId: string, language: string, value?: string, version: number = 1): Promise<void> => {
     const field = fields.find(f => f.id === fieldId);
@@ -176,7 +231,13 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
         <div className="data-editor-content">
           <div className="fields-list">
             <div className="fields-list-header">
-              <h3>Champs de données</h3>
+              <input
+                type="text"
+                placeholder="Filtrer les champs..."
+                value={filterText}
+                onChange={(e) => setFilterText(e.target.value)}
+                className="field-filter-input"
+              />
               <button onClick={() => setShowAddField(true)} className="add-field-button">
                 + Ajouter un champ
               </button>
@@ -192,27 +253,71 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               </div>
             )}
             <div className="fields-items">
-              {fields.map((field, index) => {
-                const version1Value = field.aiVersions.find(v => v.version === 1)?.value || '';
-                return (
-                  <div
-                    key={field.id}
-                    className={`field-item ${selectedField?.id === field.id ? 'selected' : ''} ${draggedIndex === index ? 'dragging' : ''}`}
-                    onClick={() => setSelectedField(field)}
-                    draggable
-                    onDragStart={() => handleDragStart(index)}
-                    onDragOver={(e) => handleDragOver(e, index)}
-                    onDragEnd={handleDragEnd}
-                  >
-                    <span className="drag-handle">☰</span>
-                    <div className="field-item-content">
-                      <span className="field-name">{field.name}</span>
-                      <span className="field-value-preview">{version1Value || '(vide)'}</span>
-                      <span className="field-type">{field.type}</span>
+              {filteredFields.length === 0 ? (
+                <div className="no-fields-message">
+                  {filterText ? 'Aucun champ ne correspond au filtre' : 'Aucun champ'}
+                </div>
+              ) : (
+                filteredFields.map((field) => {
+                  // Trouver l'index réel dans le tableau fields pour le drag & drop
+                  const realIndex = fields.findIndex(f => f.id === field.id);
+                  
+                  // Trouver la première valeur non vide (version 1, puis 2, puis 3, puis langues)
+                  let firstValue = '';
+                  const version1 = field.aiVersions?.find(v => v.version === 1);
+                  const version2 = field.aiVersions?.find(v => v.version === 2);
+                  const version3 = field.aiVersions?.find(v => v.version === 3);
+                  
+                  if (version1?.value?.trim()) {
+                    firstValue = version1.value;
+                  } else if (version2?.value?.trim()) {
+                    firstValue = version2.value;
+                  } else if (version3?.value?.trim()) {
+                    firstValue = version3.value;
+                  } else if (field.languageVersions?.length > 0) {
+                    const firstLangValue = field.languageVersions.find(lv => lv.value?.trim());
+                    if (firstLangValue) {
+                      firstValue = firstLangValue.value;
+                    }
+                  }
+                  
+                  const nonEmptyCount = countNonEmptyValues(field);
+                  const additionalCount = nonEmptyCount > 1 ? nonEmptyCount - 1 : 0;
+                  
+                  return (
+                    <div
+                      key={field.id}
+                      className={`field-item ${selectedField?.id === field.id ? 'selected' : ''} ${draggedIndex === realIndex ? 'dragging' : ''}`}
+                      onClick={() => setSelectedField(field)}
+                      draggable
+                      onDragStart={() => handleDragStart(realIndex)}
+                      onDragOver={(e) => handleDragOver(e, realIndex)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <span className="drag-handle">☰</span>
+                      <div className="field-item-content">
+                        <span className="field-name">{field.name}</span>
+                        <span className="field-value-preview">{firstValue || '(vide)'}</span>
+                      </div>
+                      <div className="field-item-actions">
+                        {additionalCount > 0 && (
+                          <span className="additional-values-count">({additionalCount})</span>
+                        )}
+                        <button
+                          className="delete-field-button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteField(field.id);
+                          }}
+                          title="Supprimer ce champ"
+                        >
+                          🗑️
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                );
-              })}
+                  );
+                })
+              )}
             </div>
           </div>
 
