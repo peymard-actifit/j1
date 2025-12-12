@@ -511,7 +511,7 @@ const FieldEditor = ({
     setTimeout(() => setIsInitialLoad(false), 200);
   }, [field.id, field.languageVersions.length, field.aiVersions.length]); // Ajouter aiVersions.length pour détecter les changements
 
-  // Traduire automatiquement toutes les langues quand on modifie une version FR
+  // Traduire automatiquement toutes les langues quand on modifie la langue de travail
   useEffect(() => {
     // Ne pas traduire au chargement initial
     if (isInitialLoad) return;
@@ -523,7 +523,7 @@ const FieldEditor = ({
 
     if (!v1Changed && !v2Changed && !v3Changed) return;
 
-    // Mettre à jour les références immédiatement
+    // Mettre à jour les références immédiatement pour éviter les re-triggers
     prevVersion1Ref.current = version1Value;
     prevVersion2Ref.current = version2Value;
     prevVersion3Ref.current = version3Value;
@@ -743,10 +743,17 @@ const FieldEditor = ({
                           <button
                             className="clear-version-button"
                             onClick={async () => {
-                              // Effacer la version dans le state
-                              if (version === 1) setVersion1Value('');
-                              else if (version === 2) setVersion2Value('');
-                              else setVersion3Value('');
+                              // Effacer la version dans le state IMMÉDIATEMENT pour que le champ se vide visuellement
+                              if (version === 1) {
+                                setVersion1Value('');
+                                prevVersion1Ref.current = '';
+                              } else if (version === 2) {
+                                setVersion2Value('');
+                                prevVersion2Ref.current = '';
+                              } else {
+                                setVersion3Value('');
+                                prevVersion3Ref.current = '';
+                              }
                               
                               // Effacer toutes les traductions de cette version pour TOUTES les langues
                               let updatedField = { ...field };
