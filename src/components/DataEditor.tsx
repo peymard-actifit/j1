@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { UserDataField } from '../types/database';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
@@ -135,26 +135,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     );
   });
 
-  const handleAddLanguageVersion = async (fieldId: string, language: string, value?: string, version: number = 1): Promise<void> => {
-    const field = fields.find(f => f.id === fieldId);
-    if (!field) return;
-
-    let translatedValue = value;
-
-    // Si aucune valeur n'est fournie, traduire automatiquement depuis la langue de base
-    if (!translatedValue) {
-      try {
-        translatedValue = await translateField(field, language, version);
-      } catch (error: any) {
-        alert(`Erreur lors de la traduction: ${error.message}`);
-        return;
-      }
-    }
-
-    const updatedField = addTranslationToField(field, language, translatedValue, version);
-    await handleSaveField(updatedField);
-    setSelectedField(updatedField);
-  };
 
   const handleTranslateAllFields = async (targetLang: string) => {
     if (!user) return;
@@ -326,7 +306,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               <FieldEditor
                 field={selectedField}
                 onSave={handleSaveField}
-                onAddLanguage={handleAddLanguageVersion}
               />
             ) : (
               <div className="no-field-selected">
@@ -392,11 +371,9 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
 const FieldEditor = ({
   field,
   onSave,
-  onAddLanguage,
 }: {
   field: UserDataField;
   onSave: (field: UserDataField) => void;
-  onAddLanguage: (fieldId: string, language: string, value?: string, version?: number) => Promise<void>;
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
@@ -410,19 +387,86 @@ const FieldEditor = ({
   const [version3Value, setVersion3Value] = useState(
     field.aiVersions.find(v => v.version === 3)?.value || ''
   );
-  const [newLanguage, setNewLanguage] = useState('');
-  const [newLanguageVersion1, setNewLanguageVersion1] = useState('');
-  const [newLanguageVersion2, setNewLanguageVersion2] = useState('');
-  const [newLanguageVersion3, setNewLanguageVersion3] = useState('');
+  // Langues disponibles
+  const availableLanguages = ['fr', 'en', 'es', 'de', 'it', 'pt'];
+
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const prevVersion1Ref = useRef<string>('');
+  const prevVersion2Ref = useRef<string>('');
+  const prevVersion3Ref = useRef<string>('');
 
   // Mettre à jour les états quand le champ change
   useEffect(() => {
+    const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
+    const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
+    const v3 = field.aiVersions.find(v => v.version === 3)?.value || '';
+    
     setName(field.name);
     setTag(field.tag);
-    setVersion1Value(field.aiVersions.find(v => v.version === 1)?.value || '');
-    setVersion2Value(field.aiVersions.find(v => v.version === 2)?.value || '');
-    setVersion3Value(field.aiVersions.find(v => v.version === 3)?.value || '');
+    setVersion1Value(v1);
+    setVersion2Value(v2);
+    setVersion3Value(v3);
+    
+    prevVersion1Ref.current = v1;
+    prevVersion2Ref.current = v2;
+    prevVersion3Ref.current = v3;
+    
+    setIsInitialLoad(true);
+    setTimeout(() => setIsInitialLoad(false), 200);
   }, [field.id]);
+
+  // Traduire automatiquement toutes les langues quand on modifie une version FR
+  useEffect(() => {
+    // Ne pas traduire au chargement initial
+    if (isInitialLoad) return;
+
+    // Vérifier si une valeur a réellement changé
+    const v1Changed = version1Value !== prevVersion1Ref.current;
+    const v2Changed = version2Value !== prevVersion2Ref.current;
+    const v3Changed = version3Value !== prevVersion3Ref.current;
+
+    if (!v1Changed && !v2Changed && !v3Changed) return;
+
+    // Mettre à jour les références
+    prevVersion1Ref.current = version1Value;
+    prevVersion2Ref.current = version2Value;
+    prevVersion3Ref.current = version3Value;
+
+    const translateAllLanguages = async () => {
+      const languagesToTranslate = availableLanguages.filter(lang => lang !== field.baseLanguage);
+      let updatedField = { ...field };
+      let hasUpdates = false;
+      
+      for (const targetLang of languagesToTranslate) {
+        for (let version = 1; version <= 3; version++) {
+          const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
+          const valueChanged = version === 1 ? v1Changed : version === 2 ? v2Changed : v3Changed;
+          
+          // Ne traduire que si la valeur a changé et n'est pas vide
+          if (valueChanged && sourceValue && sourceValue.trim()) {
+            try {
+              const translated = await translateField(updatedField, targetLang, version);
+              updatedField = addTranslationToField(updatedField, targetLang, translated, version);
+              hasUpdates = true;
+            } catch (error: any) {
+              console.error(`Error translating ${targetLang} version ${version}:`, error);
+            }
+          }
+        }
+      }
+
+      if (hasUpdates) {
+        onSave(updatedField);
+      }
+    };
+
+    // Délai pour éviter trop de traductions pendant la saisie
+    const timeoutId = setTimeout(() => {
+      translateAllLanguages();
+    }, 1500);
+
+    return () => clearTimeout(timeoutId);
+  }, [version1Value, version2Value, version3Value, isInitialLoad]);
 
   const handleSave = () => {
     // Mettre à jour les 3 versions dans aiVersions
@@ -460,24 +504,6 @@ const FieldEditor = ({
     onSave(updatedField);
   };
 
-  const handleAddLanguageClick = async () => {
-    if (newLanguage) {
-      // Ajouter les 3 versions pour la nouvelle langue
-      if (newLanguageVersion1) {
-        await onAddLanguage(field.id, newLanguage, newLanguageVersion1, 1);
-      }
-      if (newLanguageVersion2) {
-        await onAddLanguage(field.id, newLanguage, newLanguageVersion2, 2);
-      }
-      if (newLanguageVersion3) {
-        await onAddLanguage(field.id, newLanguage, newLanguageVersion3, 3);
-      }
-      setNewLanguage('');
-      setNewLanguageVersion1('');
-      setNewLanguageVersion2('');
-      setNewLanguageVersion3('');
-    }
-  };
 
   return (
     <div className="field-editor-content">
@@ -503,64 +529,29 @@ const FieldEditor = ({
             onChange={(e) => setTag(e.target.value)}
           />
         </div>
-        <div className="form-group versions-row">
-          <label>Versions ({field.baseLanguage})</label>
-          <div className="versions-container">
-            <div className="version-input">
-              <label className="version-label">Version 1</label>
-              <textarea
-                value={version1Value}
-                onChange={(e) => setVersion1Value(e.target.value)}
-                rows={4}
-                placeholder="Première version"
-              />
-            </div>
-            <div className="version-input">
-              <label className="version-label">Version 2</label>
-              <textarea
-                value={version2Value}
-                onChange={(e) => setVersion2Value(e.target.value)}
-                rows={4}
-                placeholder="Deuxième version"
-              />
-            </div>
-            <div className="version-input">
-              <label className="version-label">Version 3</label>
-              <textarea
-                value={version3Value}
-                onChange={(e) => setVersion3Value(e.target.value)}
-                rows={4}
-                placeholder="Troisième version"
-              />
-            </div>
-          </div>
-        </div>
       </div>
 
       <div className="language-versions">
-        <h4>Versions multilingues</h4>
-        {Array.from(new Set(field.languageVersions.map(v => v.language)))
-          .filter(lang => lang !== field.baseLanguage)
-          .map(language => {
-            const versions = field.languageVersions
-              .filter(v => v.language === language)
-              .sort((a, b) => a.version - b.version);
+        {availableLanguages.map(language => {
+          // Pour la langue de base, utiliser aiVersions
+          if (language === field.baseLanguage) {
             return (
               <div key={language} className="language-version-group">
                 <h5 className="language-group-header">{language.toUpperCase()}</h5>
                 <div className="language-versions-row">
                   {[1, 2, 3].map(version => {
-                    const versionData = versions.find(v => v.version === version);
+                    const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
                     return (
                       <div key={version} className="language-version-input-inline">
                         <label className="version-label">Version {version}</label>
                         <textarea
-                          value={versionData?.value || ''}
+                          value={value}
                           onChange={(e) => {
-                            const updatedField = addTranslationToField(field, language, e.target.value, version);
-                            onSave(updatedField);
+                            if (version === 1) setVersion1Value(e.target.value);
+                            else if (version === 2) setVersion2Value(e.target.value);
+                            else setVersion3Value(e.target.value);
                           }}
-                          rows={4}
+                          rows={3}
                           placeholder={`Version ${version}`}
                         />
                       </div>
@@ -569,91 +560,38 @@ const FieldEditor = ({
                 </div>
               </div>
             );
-          })}
-        <div className="add-language-form">
-          <div className="language-input-group">
-            <select
-              value={newLanguage}
-              onChange={(e) => setNewLanguage(e.target.value)}
-              className="lang-select"
-            >
-              <option value="">Sélectionner une langue</option>
-              <option value="en">Anglais (en)</option>
-              <option value="es">Espagnol (es)</option>
-              <option value="de">Allemand (de)</option>
-              <option value="it">Italien (it)</option>
-              <option value="pt">Portugais (pt)</option>
-              <option value="nl">Néerlandais (nl)</option>
-              <option value="pl">Polonais (pl)</option>
-              <option value="ru">Russe (ru)</option>
-              <option value="ja">Japonais (ja)</option>
-              <option value="zh">Chinois (zh)</option>
-              <option value="ko">Coréen (ko)</option>
-            </select>
-            <button
-              onClick={async () => {
-                if (newLanguage) {
-                  // Traduire automatiquement les 3 versions
-                  for (let version = 1; version <= 3; version++) {
-                    const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
-                    if (sourceValue) {
-                      try {
-                        const translated = await translateField(field, newLanguage, version);
-                        await onAddLanguage(field.id, newLanguage, translated, version);
-                      } catch (error: any) {
-                        console.error(`Error translating version ${version}:`, error);
-                      }
-                    }
-                  }
-                  setNewLanguage('');
-                  setNewLanguageVersion1('');
-                  setNewLanguageVersion2('');
-                  setNewLanguageVersion3('');
-                }
-              }}
-              className="translate-auto-button"
-              title="Traduire automatiquement les 3 versions depuis la langue de base"
-            >
-              🔄 Traduire automatiquement
-            </button>
-          </div>
-          <div className="language-versions-row">
-            <div className="language-version-input-inline">
-              <label className="version-label">Version 1</label>
-              <textarea
-                placeholder="Version 1"
-                value={newLanguageVersion1}
-                onChange={(e) => setNewLanguageVersion1(e.target.value)}
-                rows={4}
-              />
+          }
+          
+          // Pour les autres langues, utiliser languageVersions
+          const versions = field.languageVersions
+            .filter(v => v.language === language)
+            .sort((a, b) => a.version - b.version);
+          
+          return (
+            <div key={language} className="language-version-group">
+              <h5 className="language-group-header">{language.toUpperCase()}</h5>
+              <div className="language-versions-row">
+                {[1, 2, 3].map(version => {
+                  const versionData = versions.find(v => v.version === version);
+                  return (
+                    <div key={version} className="language-version-input-inline">
+                      <label className="version-label">Version {version}</label>
+                      <textarea
+                        value={versionData?.value || ''}
+                        onChange={(e) => {
+                          const updatedField = addTranslationToField(field, language, e.target.value, version);
+                          onSave(updatedField);
+                        }}
+                        rows={3}
+                        placeholder={`Version ${version}`}
+                      />
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-            <div className="language-version-input-inline">
-              <label className="version-label">Version 2</label>
-              <textarea
-                placeholder="Version 2"
-                value={newLanguageVersion2}
-                onChange={(e) => setNewLanguageVersion2(e.target.value)}
-                rows={4}
-              />
-            </div>
-            <div className="language-version-input-inline">
-              <label className="version-label">Version 3</label>
-              <textarea
-                placeholder="Version 3"
-                value={newLanguageVersion3}
-                onChange={(e) => setNewLanguageVersion3(e.target.value)}
-                rows={4}
-              />
-            </div>
-          </div>
-          <button
-            onClick={handleAddLanguageClick}
-            className="add-language-button"
-            disabled={!newLanguage}
-          >
-            Ajouter les traductions
-          </button>
-        </div>
+          );
+        })}
       </div>
     </div>
   );
