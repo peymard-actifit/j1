@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { analyzeCVFile } from '../utils/ai';
+import { api } from '../utils/api';
 import { CVDragDropMapper } from './CVDragDropMapper';
 import './CVImport.css';
 
@@ -70,9 +71,43 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
       const analysis = await analyzeCVFile(file);
       setExtractedData(analysis);
       
-      // Générer des mappings automatiques
-      const autoMappings = generateAutoMappings(analysis, userFields);
-      setMappings(autoMappings);
+      // Utiliser l'IA pour faire un matching intelligent
+      try {
+        const matchResult = await api.matchCVFields(analysis, userFields);
+        if (matchResult.success && matchResult.matches && matchResult.matches.length > 0) {
+          // Convertir les matches de l'IA en FieldMapping
+          const aiMappings: FieldMapping[] = matchResult.matches.map((match: any) => ({
+            fieldId: match.fieldId,
+            extractedKey: match.extractedKey,
+            extractedValue: match.extractedValue,
+            targetLanguage: match.targetLanguage,
+            targetVersion: match.targetVersion,
+            confirmed: false,
+          }));
+          
+          // Filtrer les mappings pour éviter les doublons et valeurs existantes
+          const filteredMappings = aiMappings.filter(mapping => {
+            const field = userFields.find(f => f.id === mapping.fieldId);
+            if (!field) return false;
+            
+            // Vérifier si la valeur existe déjà
+            const existsCheck = valueExistsInField(field, mapping.extractedValue, mapping.targetLanguage);
+            return !existsCheck.exists;
+          });
+          
+          setMappings(filteredMappings);
+        } else {
+          // Fallback sur le matching automatique classique si l'IA ne retourne rien
+          const autoMappings = generateAutoMappings(analysis, userFields);
+          setMappings(autoMappings);
+        }
+      } catch (matchError: any) {
+        console.warn('Erreur lors du matching IA, utilisation du matching automatique:', matchError);
+        // Fallback sur le matching automatique classique
+        const autoMappings = generateAutoMappings(analysis, userFields);
+        setMappings(autoMappings);
+      }
+      
       // Proposer le mode drag & drop après l'analyse
       setStep('dragdrop');
     } catch (err: any) {

@@ -131,6 +131,15 @@ export const api = {
     return res.json();
   },
 
+  async matchCVFields(extractedData: any, userFields: any[]) {
+    const res = await fetch(`${API_BASE}/ai/match-cv-fields`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ extractedData, userFields }),
+    });
+    return res.json();
+  },
+
   async callAI(type: string, input: any, userId: string, userData?: any) {
     const res = await fetch(`${API_BASE}/ai/chat`, {
       method: 'POST',
