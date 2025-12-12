@@ -384,6 +384,8 @@ const FieldEditor = ({
   const prevVersion1Ref = useRef<string>('');
   const prevVersion2Ref = useRef<string>('');
   const prevVersion3Ref = useRef<string>('');
+  // Stocker les traductions automatiques pour détecter les modifications manuelles
+  const autoTranslationsRef = useRef<Record<string, Record<number, string>>>({});
 
   // Mettre à jour les états quand le champ change
   useEffect(() => {
@@ -479,6 +481,12 @@ const FieldEditor = ({
       // Appliquer toutes les traductions au champ
       for (const result of results) {
         if (result) {
+          // Stocker la traduction automatique
+          if (!autoTranslationsRef.current[result.lang]) {
+            autoTranslationsRef.current[result.lang] = {};
+          }
+          autoTranslationsRef.current[result.lang][result.version] = result.text;
+          // Utiliser une fonction pour mettre à jour de manière thread-safe
           updatedField = addTranslationToField(updatedField, result.lang, result.text, result.version);
           hasUpdates = true;
         }
@@ -585,16 +593,46 @@ const FieldEditor = ({
                     return (
                       <div key={version} className="language-version-input-inline">
                         <label className="version-label">Version {version}</label>
-                        <textarea
-                          value={value}
-                          onChange={(e) => {
-                            if (version === 1) setVersion1Value(e.target.value);
-                            else if (version === 2) setVersion2Value(e.target.value);
-                            else setVersion3Value(e.target.value);
-                          }}
-                          rows={3}
-                          placeholder={`Version ${version}`}
-                        />
+                        <div className="version-input-wrapper">
+                          <textarea
+                            value={value}
+                            onChange={(e) => {
+                              if (version === 1) setVersion1Value(e.target.value);
+                              else if (version === 2) setVersion2Value(e.target.value);
+                              else setVersion3Value(e.target.value);
+                            }}
+                            rows={3}
+                            placeholder={`Version ${version}`}
+                          />
+                          {value && (
+                            <button
+                              className="clear-version-button"
+                              onClick={() => {
+                                // Effacer la version FR
+                                if (version === 1) setVersion1Value('');
+                                else if (version === 2) setVersion2Value('');
+                                else setVersion3Value('');
+                                
+                                // Effacer toutes les traductions de cette version
+                                let updatedField = { ...field };
+                                const languagesToClear = availableLanguages.filter(lang => lang !== field.baseLanguage);
+                                languagesToClear.forEach(targetLang => {
+                                  const existingIndex = updatedField.languageVersions.findIndex(
+                                    v => v.language === targetLang && v.version === version
+                                  );
+                                  if (existingIndex >= 0) {
+                                    updatedField.languageVersions.splice(existingIndex, 1);
+                                  }
+                                });
+                                updatedField.languageVersions = [...updatedField.languageVersions];
+                                onSave(updatedField);
+                              }}
+                              title="Effacer cette version et toutes ses traductions"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
                       </div>
                     );
                   })}
@@ -617,18 +655,56 @@ const FieldEditor = ({
               <div className="language-versions-row">
                 {[1, 2, 3].map(version => {
                   const versionData = versions.find(v => v.version === version);
+                  const currentValue = versionData?.value || '';
+                  const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                  const isManuallyModified = autoTranslation && currentValue !== autoTranslation && currentValue !== '';
+                  
                   return (
                     <div key={version} className="language-version-input-inline">
-                      <label className="version-label">Version {version}</label>
-                      <textarea
-                        value={versionData?.value || ''}
-                        onChange={(e) => {
-                          const updatedField = addTranslationToField(field, language, e.target.value, version);
-                          onSave(updatedField);
-                        }}
-                        rows={3}
-                        placeholder={`Version ${version}`}
-                      />
+                      <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                        <textarea
+                          value={currentValue}
+                          onChange={(e) => {
+                            const updatedField = addTranslationToField(field, language, e.target.value, version);
+                            onSave(updatedField);
+                          }}
+                          rows={3}
+                          placeholder={`Version ${version}`}
+                        />
+                        {isManuallyModified && (
+                          <button
+                            className="reset-translation-button"
+                            onClick={async () => {
+                              // Réinitialiser avec la traduction automatique
+                              if (autoTranslation) {
+                                const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                onSave(updatedField);
+                              } else {
+                                // Si pas de traduction auto stockée, retraduire depuis la version FR
+                                const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
+                                if (sourceValue && sourceValue.trim()) {
+                                  try {
+                                    const translationResult = await api.translate(sourceValue, language, field.baseLanguage);
+                                    if (translationResult.success) {
+                                      const updatedField = addTranslationToField(field, language, translationResult.text, version);
+                                      if (!autoTranslationsRef.current[language]) {
+                                        autoTranslationsRef.current[language] = {};
+                                      }
+                                      autoTranslationsRef.current[language][version] = translationResult.text;
+                                      onSave(updatedField);
+                                    }
+                                  } catch (error: any) {
+                                    console.error(`Error retranslating ${language} version ${version}:`, error);
+                                  }
+                                }
+                              }
+                            }}
+                            title="Réinitialiser avec la traduction automatique"
+                          >
+                            ↻
+                          </button>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
