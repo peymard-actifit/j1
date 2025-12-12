@@ -377,7 +377,7 @@ const FieldEditor = ({
     
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
-  }, [field.id, field.languageVersions]); // Utiliser languageVersions directement pour détecter les changements
+  }, [field.id, field.languageVersions.length]); // Utiliser la longueur pour éviter les re-renders inutiles
 
   // Traduire automatiquement toutes les langues quand on modifie une version FR
   useEffect(() => {
@@ -412,16 +412,16 @@ const FieldEditor = ({
       let updatedField = { ...currentField };
       let hasUpdates = false;
       
-      // Traduire toutes les langues pour toutes les versions qui ont changé
-      const translationPromises: Promise<void>[] = [];
+      // Traduire toutes les langues pour TOUTES les versions (pas seulement celles qui ont changé)
+      // Mais seulement si la valeur source existe et n'est pas vide
+      const translationPromises: Array<Promise<{ lang: string; version: number; text: string } | null>> = [];
       
       for (const targetLang of languagesToTranslate) {
         for (let version = 1; version <= 3; version++) {
           const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
-          const valueChanged = version === 1 ? v1Changed : version === 2 ? v2Changed : v3Changed;
           
-          // Traduire si la valeur a changé et n'est pas vide
-          if (valueChanged && sourceValue && sourceValue.trim()) {
+          // Traduire si la valeur source existe et n'est pas vide
+          if (sourceValue && sourceValue.trim()) {
             const translationPromise = (async () => {
               try {
                 // Traduire directement depuis la valeur source actuelle
@@ -431,12 +431,14 @@ const FieldEditor = ({
                   throw new Error(translationResult.error || 'Erreur lors de la traduction');
                 }
                 
-                const translated = translationResult.text;
-                // Utiliser une fonction pour mettre à jour de manière thread-safe
-                updatedField = addTranslationToField(updatedField, targetLang, translated, version);
-                hasUpdates = true;
+                return {
+                  lang: targetLang,
+                  version: version,
+                  text: translationResult.text,
+                };
               } catch (error: any) {
                 console.error(`Error translating ${targetLang} version ${version}:`, error);
+                return null;
               }
             })();
             
@@ -446,7 +448,15 @@ const FieldEditor = ({
       }
 
       // Attendre que toutes les traductions soient terminées
-      await Promise.all(translationPromises);
+      const results = await Promise.all(translationPromises);
+
+      // Appliquer toutes les traductions au champ
+      for (const result of results) {
+        if (result) {
+          updatedField = addTranslationToField(updatedField, result.lang, result.text, result.version);
+          hasUpdates = true;
+        }
+      }
 
       if (hasUpdates) {
         // Mettre à jour le champ avec les nouvelles traductions
