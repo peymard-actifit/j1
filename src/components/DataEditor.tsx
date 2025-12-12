@@ -557,36 +557,34 @@ const FieldEditor = ({
 
   return (
     <div className="field-editor-content">
-      <div className="field-editor-form">
-        <div className="form-group-inline">
-          <div className="form-field-inline">
-            <label>Nom du champ</label>
-            <input
-              type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-            />
-          </div>
-          <div className="form-field-inline">
-            <label>Tag</label>
-            <input
-              type="text"
-              value={tag}
-              onChange={(e) => setTag(e.target.value)}
-            />
-          </div>
+      <div className="field-editor-header-sticky">
+        <div className="form-field-inline-compact">
+          <label>Nom du champ</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+        </div>
+        <div className="form-field-inline-compact">
+          <label>Tag</label>
+          <input
+            type="text"
+            value={tag}
+            onChange={(e) => setTag(e.target.value)}
+          />
         </div>
       </div>
 
-      <div className="language-versions">
+      <div className="language-versions-grid">
         {availableLanguages.map(language => {
           // Pour la langue de base, utiliser aiVersions
           if (language === field.baseLanguage) {
             return (
-              <div key={language} className="language-version-group">
-                <h5 className="language-group-header">
+              <div key={language} className="language-version-row">
+                <div className="language-label">
                   {language.toUpperCase()} ({languageNames[language] || language})
-                </h5>
+                </div>
                 <div className="language-versions-row">
                   {[1, 2, 3].map(version => {
                     const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
@@ -601,7 +599,7 @@ const FieldEditor = ({
                               else if (version === 2) setVersion2Value(e.target.value);
                               else setVersion3Value(e.target.value);
                             }}
-                            rows={3}
+                            rows={2}
                             placeholder={`Version ${version}`}
                           />
                           {value && (
@@ -642,16 +640,15 @@ const FieldEditor = ({
           }
           
           // Pour les autres langues, utiliser languageVersions
-          // Utiliser le champ le plus récent (celui qui vient d'être sauvegardé)
           const versions = (field.languageVersions || [])
             .filter(v => v.language === language)
             .sort((a, b) => a.version - b.version);
           
           return (
-            <div key={language} className="language-version-group">
-              <h5 className="language-group-header">
+            <div key={language} className="language-version-row">
+              <div className="language-label">
                 {language.toUpperCase()} ({languageNames[language] || language})
-              </h5>
+              </div>
               <div className="language-versions-row">
                 {[1, 2, 3].map(version => {
                   const versionData = versions.find(v => v.version === version);
@@ -668,7 +665,7 @@ const FieldEditor = ({
                             const updatedField = addTranslationToField(field, language, e.target.value, version);
                             onSave(updatedField);
                           }}
-                          rows={3}
+                          rows={2}
                           placeholder={`Version ${version}`}
                         />
                         {isManuallyModified && (
