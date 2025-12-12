@@ -126,6 +126,12 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   const handleSaveField = async (field: UserDataField) => {
     const updated = fields.map(f => f.id === field.id ? field : f);
     setFields(updated);
+    
+    // Mettre à jour immédiatement selectedField pour que l'affichage se mette à jour instantanément
+    if (selectedField?.id === field.id) {
+      setSelectedField(field);
+    }
+    
     if (user && setUser) {
       try {
         const updatedUser = { ...user, data: updated };
