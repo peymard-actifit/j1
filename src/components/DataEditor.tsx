@@ -517,10 +517,21 @@ const FieldEditor = ({
     prevVersion2Ref.current = v2;
     prevVersion3Ref.current = v3;
     
+    // Réinitialiser autoTranslationsRef pour la langue de travail (elle ne doit jamais être marquée comme modifiée manuellement)
+    // Car c'est la langue principale, pas une traduction
+    if (autoTranslationsRef.current[workingLanguage]) {
+      delete autoTranslationsRef.current[workingLanguage];
+    }
+    
     // Initialiser les traductions automatiques stockées depuis les languageVersions existantes
     // Cela permet de détecter les modifications manuelles
-    // Mais seulement si elles n'ont pas été modifiées manuellement
+    // Mais seulement pour les langues secondaires (pas la langue de travail)
     field.languageVersions.forEach(lv => {
+      // Ignorer la langue de travail - elle ne doit jamais être marquée comme modifiée manuellement
+      if (lv.language === workingLanguage) {
+        return;
+      }
+      
       if (!autoTranslationsRef.current[lv.language]) {
         autoTranslationsRef.current[lv.language] = {};
       }
@@ -825,12 +836,16 @@ const FieldEditor = ({
                   {[1, 2, 3].map(version => {
                     const versionData = versions.find(v => v.version === version);
                     const currentValue = versionData?.value || '';
-                    const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                    // La langue de travail ne doit jamais être marquée comme modifiée manuellement
+                    // Car c'est la langue principale, pas une traduction
+                    const isWorkingLanguage = language === workingLanguage;
+                    const autoTranslation = isWorkingLanguage ? undefined : autoTranslationsRef.current[language]?.[version];
                     // Une traduction est manuellement modifiée si :
+                    // - Ce n'est PAS la langue de travail
                     // - La valeur actuelle existe et n'est pas vide
                     // - Il y a une traduction auto stockée
                     // - La valeur actuelle est différente de la traduction auto stockée
-                    const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
+                    const isManuallyModified = !isWorkingLanguage && currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
                     
                     return (
                       <div key={version} className="language-version-input-inline">
@@ -974,12 +989,16 @@ const FieldEditor = ({
                   {[1, 2, 3].map(version => {
                     const versionData = versions.find(v => v.version === version);
                     const currentValue = versionData?.value || '';
-                    const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                    // La langue de travail ne doit jamais être marquée comme modifiée manuellement
+                    // Car c'est la langue principale, pas une traduction
+                    const isWorkingLanguage = language === workingLanguage;
+                    const autoTranslation = isWorkingLanguage ? undefined : autoTranslationsRef.current[language]?.[version];
                     // Une traduction est manuellement modifiée si :
+                    // - Ce n'est PAS la langue de travail
                     // - La valeur actuelle existe et n'est pas vide
                     // - Il y a une traduction auto stockée
                     // - La valeur actuelle est différente de la traduction auto stockée
-                    const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
+                    const isManuallyModified = !isWorkingLanguage && currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
                     
                     return (
                       <div key={version} className="language-version-input-inline">
