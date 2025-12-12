@@ -13,14 +13,33 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   const [showAddField, setShowAddField] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [filterText, setFilterText] = useState('');
+  // Langue de travail (peut être différente de la baseLanguage de chaque champ)
+  const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
 
   useEffect(() => {
     if (user) {
       setFields(user.data || []);
+      setWorkingLanguage(user.baseLanguage || 'fr');
       // Traduire automatiquement tous les champs au chargement si les traductions n'existent pas
       translateAllFieldsOnLoad(user.data || []);
     }
   }, [user]);
+
+  // Fonction pour changer la langue de travail
+  const handleChangeWorkingLanguage = async (newLanguage: string) => {
+    if (!user || !setUser) return;
+    
+    setWorkingLanguage(newLanguage);
+    
+    // Mettre à jour la baseLanguage de l'utilisateur
+    const updatedUser = { ...user, baseLanguage: newLanguage };
+    try {
+      const savedUser = await storage.saveUser(updatedUser);
+      setUser(savedUser);
+    } catch (error) {
+      console.error('Error updating working language:', error);
+    }
+  };
 
   const translateAllFieldsOnLoad = async (fieldsToTranslate: UserDataField[]) => {
     if (!user || !setUser) return;
@@ -295,6 +314,8 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               <FieldEditor
                 field={selectedField}
                 onSave={handleSaveField}
+                workingLanguage={workingLanguage}
+                onChangeWorkingLanguage={handleChangeWorkingLanguage}
               />
             ) : (
               <div className="no-field-selected">
@@ -312,9 +333,13 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
 const FieldEditor = ({
   field,
   onSave,
+  workingLanguage,
+  onChangeWorkingLanguage,
 }: {
   field: UserDataField;
   onSave: (field: UserDataField) => void;
+  workingLanguage: string;
+  onChangeWorkingLanguage: (lang: string) => void;
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
@@ -439,19 +464,27 @@ const FieldEditor = ({
     prevVersion3Ref.current = version3Value;
 
     const translateAllLanguages = async () => {
-      const languagesToTranslate = availableLanguages.filter(lang => lang !== field.baseLanguage);
+      const languagesToTranslate = availableLanguages.filter(lang => lang !== workingLanguage);
       
       // Créer une copie du champ avec les valeurs actuelles
-      const currentField = {
-        ...field,
-        aiVersions: [
+      // Si workingLanguage est la langue de base, mettre à jour aiVersions
+      // Sinon, mettre à jour languageVersions
+      let updatedField = { ...field };
+      
+      if (workingLanguage === field.baseLanguage) {
+        updatedField.aiVersions = [
           { version: 1, value: version1Value, createdAt: new Date().toISOString() },
           { version: 2, value: version2Value, createdAt: new Date().toISOString() },
           { version: 3, value: version3Value, createdAt: new Date().toISOString() },
-        ].filter(v => v.value && v.value.trim()),
-      };
+        ].filter(v => v.value && v.value.trim());
+      } else {
+        // Mettre à jour les languageVersions pour la langue de travail
+        [1, 2, 3].forEach(version => {
+          const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
+          updatedField = addTranslationToField(updatedField, workingLanguage, value, version);
+        });
+      }
       
-      let updatedField = { ...currentField };
       let hasUpdates = false;
       
       // Traduire toutes les langues pour TOUTES les versions (pas seulement celles qui ont changé)
@@ -478,7 +511,7 @@ const FieldEditor = ({
             const translationPromise = (async () => {
               try {
                 // Traduire directement depuis la valeur source actuelle
-                const translationResult = await api.translate(sourceValue, targetLang, field.baseLanguage);
+                const translationResult = await api.translate(sourceValue, targetLang, workingLanguage);
                 
                 if (!translationResult.success) {
                   throw new Error(translationResult.error || 'Erreur lors de la traduction');
@@ -558,13 +591,22 @@ const FieldEditor = ({
     
     updatedAiVersions.sort((a, b) => a.version - b.version);
 
-    const updatedField: UserDataField = {
+    let updatedField: UserDataField = {
       ...field,
       name,
       tag,
       aiVersions: updatedAiVersions,
       updatedAt: now,
     };
+    
+    // Si la langue de travail n'est pas la langue de base, mettre à jour aussi languageVersions
+    if (workingLanguage !== field.baseLanguage) {
+      [1, 2, 3].forEach(version => {
+        const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
+        updatedField = addTranslationToField(updatedField, workingLanguage, value, version);
+      });
+    }
+    
     onSave(updatedField);
   };
 
@@ -602,12 +644,18 @@ const FieldEditor = ({
       </div>
 
       <div className="language-versions-grid">
-        {availableLanguages.map(language => {
-          // Pour la langue de base, utiliser aiVersions
+        {/* Afficher d'abord la langue de travail */}
+        {(() => {
+          const language = workingLanguage;
+          // Pour la langue de travail, utiliser aiVersions si c'est la langue de base, sinon languageVersions
           if (language === field.baseLanguage) {
             return (
               <div key={language} className="language-version-row">
-                <div className="language-label">
+                <div 
+                  className="language-label clickable-language-label"
+                  onDoubleClick={() => onChangeWorkingLanguage(language)}
+                  title="Double-clic pour changer la langue de travail"
+                >
                   {language.toUpperCase()} ({languageNames[language] || language})
                 </div>
                 <div className="language-versions-row">
@@ -670,99 +718,235 @@ const FieldEditor = ({
                 </div>
               </div>
             );
-          }
-          
-          // Pour les autres langues, utiliser languageVersions
-          const versions = (field.languageVersions || [])
-            .filter(v => v.language === language)
-            .sort((a, b) => a.version - b.version);
-          
-          return (
-            <div key={language} className="language-version-row">
-              <div className="language-label">
-                {language.toUpperCase()} ({languageNames[language] || language})
-              </div>
-              <div className="language-versions-row">
-                {[1, 2, 3].map(version => {
-                  const versionData = versions.find(v => v.version === version);
-                  const currentValue = versionData?.value || '';
-                  const autoTranslation = autoTranslationsRef.current[language]?.[version];
-                  // Une traduction est manuellement modifiée si elle existe, qu'il y a une traduction auto, et qu'elles sont différentes
-                  const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
-                  
-                  return (
-                    <div key={version} className="language-version-input-inline">
-                      <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
-                        <textarea
-                          value={currentValue}
-                          onChange={async (e) => {
-                            const newValue = e.target.value;
-                            const updatedField = addTranslationToField(field, language, newValue, version);
-                            
-                            // Si on modifie manuellement et qu'il y a une traduction auto stockée
-                            if (autoTranslation && newValue !== autoTranslation) {
-                              // C'est une modification manuelle, on garde la traduction auto pour pouvoir réinitialiser
-                              // Ne pas mettre à jour la traduction auto stockée
-                            } else if (!autoTranslation && newValue) {
-                              // Si pas de traduction auto stockée et qu'on entre une valeur, la stocker comme auto
-                              if (!autoTranslationsRef.current[language]) {
-                                autoTranslationsRef.current[language] = {};
-                              }
-                              autoTranslationsRef.current[language][version] = newValue;
-                            } else if (newValue === '' && autoTranslation) {
-                              // Si on efface la valeur, effacer aussi la traduction auto stockée
-                              if (autoTranslationsRef.current[language]) {
-                                delete autoTranslationsRef.current[language][version];
-                              }
-                            }
-                            
-                            // Sauvegarder immédiatement
-                            await onSave(updatedField);
-                          }}
-                          rows={2}
-                          placeholder={`Version ${version}`}
-                        />
-                        {isManuallyModified && (
+          } else {
+            // Si la langue de travail n'est pas la langue de base, utiliser languageVersions
+            const versions = (field.languageVersions || [])
+              .filter(v => v.language === language)
+              .sort((a, b) => a.version - b.version);
+            
+            return (
+              <div key={language} className="language-version-row">
+                <div 
+                  className="language-label clickable-language-label"
+                  onDoubleClick={() => onChangeWorkingLanguage(language)}
+                  title="Double-clic pour changer la langue de travail"
+                >
+                  {language.toUpperCase()} ({languageNames[language] || language})
+                </div>
+                <div className="language-versions-row">
+                  {[1, 2, 3].map(version => {
+                    const versionData = versions.find(v => v.version === version);
+                    const currentValue = versionData?.value || '';
+                    const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                    const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                    
+                    return (
+                      <div key={version} className="language-version-input-inline">
+                        <label className="version-label">Version {version}</label>
+                        <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                          <textarea
+                            value={currentValue}
+                            onChange={(e) => {
+                              const newValue = e.target.value;
+                              if (version === 1) setVersion1Value(newValue);
+                              else if (version === 2) setVersion2Value(newValue);
+                              else setVersion3Value(newValue);
+                            }}
+                            rows={2}
+                            placeholder={`Version ${version}`}
+                          />
                           <button
-                            className="reset-translation-button"
+                            className="clear-version-button"
                             onClick={async () => {
-                              // Réinitialiser avec la traduction automatique
-                              if (autoTranslation) {
-                                const updatedField = addTranslationToField(field, language, autoTranslation, version);
-                                onSave(updatedField);
-                              } else {
-                                // Si pas de traduction auto stockée, retraduire depuis la version FR
-                                const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
-                                if (sourceValue && sourceValue.trim()) {
-                                  try {
-                                    const translationResult = await api.translate(sourceValue, language, field.baseLanguage);
-                                    if (translationResult.success) {
-                                      const updatedField = addTranslationToField(field, language, translationResult.text, version);
-                                      if (!autoTranslationsRef.current[language]) {
-                                        autoTranslationsRef.current[language] = {};
-                                      }
-                                      autoTranslationsRef.current[language][version] = translationResult.text;
-                                      onSave(updatedField);
-                                    }
-                                  } catch (error: any) {
-                                    console.error(`Error retranslating ${language} version ${version}:`, error);
+                              if (version === 1) setVersion1Value('');
+                              else if (version === 2) setVersion2Value('');
+                              else setVersion3Value('');
+                              
+                              let updatedField = { ...field };
+                              const existingIndex = updatedField.languageVersions.findIndex(
+                                v => v.language === language && v.version === version
+                              );
+                              if (existingIndex >= 0) {
+                                updatedField.languageVersions.splice(existingIndex, 1);
+                              }
+                              updatedField.languageVersions = [...updatedField.languageVersions];
+                              updatedField.updatedAt = new Date().toISOString();
+                              await onSave(updatedField);
+                            }}
+                            title="Effacer cette version et toutes ses traductions"
+                          >
+                            ✕
+                          </button>
+                          {isManuallyModified && (
+                            <button
+                              className="reset-translation-button"
+                              onClick={async () => {
+                                if (autoTranslation) {
+                                  const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                  await onSave(updatedField);
+                                }
+                              }}
+                              title="Réinitialiser avec la traduction automatique"
+                            >
+                              ↻
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          }
+        })()}
+        
+        {/* Afficher ensuite toutes les autres langues */}
+        {availableLanguages
+          .filter(lang => lang !== workingLanguage)
+          .map(language => {
+            // Pour la langue de base, utiliser aiVersions
+            if (language === field.baseLanguage) {
+              const versions = field.aiVersions;
+              return (
+                <div key={language} className="language-version-row">
+                  <div 
+                    className="language-label clickable-language-label"
+                    onDoubleClick={() => onChangeWorkingLanguage(language)}
+                    title="Double-clic pour changer la langue de travail"
+                  >
+                    {language.toUpperCase()} ({languageNames[language] || language})
+                  </div>
+                  <div className="language-versions-row">
+                    {[1, 2, 3].map(version => {
+                      const versionData = versions.find(v => v.version === version);
+                      const currentValue = versionData?.value || '';
+                      const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                      const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                      
+                      return (
+                        <div key={version} className="language-version-input-inline">
+                          <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                            <textarea
+                              value={currentValue}
+                              onChange={async (e) => {
+                                const newValue = e.target.value;
+                                const updatedField = addTranslationToField(field, language, newValue, version);
+                                await onSave(updatedField);
+                              }}
+                              rows={2}
+                              placeholder={`Version ${version}`}
+                            />
+                            {isManuallyModified && (
+                              <button
+                                className="reset-translation-button"
+                                onClick={async () => {
+                                  if (autoTranslation) {
+                                    const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                    await onSave(updatedField);
                                   }
+                                }}
+                                title="Réinitialiser avec la traduction automatique"
+                              >
+                                ↻
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+            
+            // Pour les autres langues, utiliser languageVersions
+            const versions = (field.languageVersions || [])
+              .filter(v => v.language === language)
+              .sort((a, b) => a.version - b.version);
+            
+            return (
+              <div key={language} className="language-version-row">
+                <div 
+                  className="language-label clickable-language-label"
+                  onDoubleClick={() => onChangeWorkingLanguage(language)}
+                  title="Double-clic pour changer la langue de travail"
+                >
+                  {language.toUpperCase()} ({languageNames[language] || language})
+                </div>
+                <div className="language-versions-row">
+                  {[1, 2, 3].map(version => {
+                    const versionData = versions.find(v => v.version === version);
+                    const currentValue = versionData?.value || '';
+                    const autoTranslation = autoTranslationsRef.current[language]?.[version];
+                    const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
+                    
+                    return (
+                      <div key={version} className="language-version-input-inline">
+                        <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                          <textarea
+                            value={currentValue}
+                            onChange={async (e) => {
+                              const newValue = e.target.value;
+                              const updatedField = addTranslationToField(field, language, newValue, version);
+                              
+                              if (autoTranslation && newValue !== autoTranslation) {
+                                // Modification manuelle
+                              } else if (!autoTranslation && newValue) {
+                                if (!autoTranslationsRef.current[language]) {
+                                  autoTranslationsRef.current[language] = {};
+                                }
+                                autoTranslationsRef.current[language][version] = newValue;
+                              } else if (newValue === '' && autoTranslation) {
+                                if (autoTranslationsRef.current[language]) {
+                                  delete autoTranslationsRef.current[language][version];
                                 }
                               }
+                              
+                              await onSave(updatedField);
                             }}
-                            title="Réinitialiser avec la traduction automatique"
-                          >
-                            ↻
-                          </button>
-                        )}
+                            rows={2}
+                            placeholder={`Version ${version}`}
+                          />
+                          {isManuallyModified && (
+                            <button
+                              className="reset-translation-button"
+                              onClick={async () => {
+                                if (autoTranslation) {
+                                  const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                  await onSave(updatedField);
+                                } else {
+                                  const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
+                                  if (sourceValue && sourceValue.trim()) {
+                                    try {
+                                      const translationResult = await api.translate(sourceValue, language, workingLanguage);
+                                      if (translationResult.success) {
+                                        const updatedField = addTranslationToField(field, language, translationResult.text, version);
+                                        if (!autoTranslationsRef.current[language]) {
+                                          autoTranslationsRef.current[language] = {};
+                                        }
+                                        autoTranslationsRef.current[language][version] = translationResult.text;
+                                        await onSave(updatedField);
+                                      }
+                                    } catch (error: any) {
+                                      console.error(`Error retranslating ${language} version ${version}:`, error);
+                                    }
+                                  }
+                                }
+                              }}
+                              title="Réinitialiser avec la traduction automatique"
+                            >
+                              ↻
+                            </button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })}
       </div>
     </div>
   );

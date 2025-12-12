@@ -356,6 +356,17 @@
   flex-shrink: 0;
 }
 
+.clickable-language-label {
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.2s;
+}
+
+.clickable-language-label:hover {
+  color: #5568d3;
+  text-decoration: underline;
+}
+
 .versions-row {
   margin-top: 1rem;
 }
@@ -452,14 +463,14 @@
   right: 0.25rem;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid #ef4444;
-  border-radius: 3px;
-  width: 18px;
-  height: 18px;
+  border-radius: 2px;
+  width: 9px;
+  height: 9px;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  font-size: 0.65rem;
+  font-size: 0.5rem;
   color: #dc2626;
   transition: all 0.2s;
   z-index: 1;
