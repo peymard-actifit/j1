@@ -622,7 +622,8 @@ const FieldEditor = ({
       // Appliquer toutes les traductions au champ
       for (const result of results) {
         if (result) {
-          // Stocker la traduction automatique
+          // Stocker la traduction automatique AVANT de mettre à jour le champ
+          // Cela permet de détecter les modifications manuelles ultérieures
           if (!autoTranslationsRef.current[result.lang]) {
             autoTranslationsRef.current[result.lang] = {};
           }
@@ -642,10 +643,10 @@ const FieldEditor = ({
     // Délai très court pour éviter trop de traductions pendant la saisie rapide
     const timeoutId = setTimeout(() => {
       translateAllLanguages();
-    }, 500); // Réduit à 500ms pour une réponse plus rapide
+    }, 300); // Réduit à 300ms pour une réponse plus rapide
 
     return () => clearTimeout(timeoutId);
-  }, [version1Value, version2Value, version3Value, isInitialLoad, field.id]);
+  }, [version1Value, version2Value, version3Value, isInitialLoad, field.id, workingLanguage]);
 
   // Auto-sauvegarde automatique
   const autoSave = () => {
