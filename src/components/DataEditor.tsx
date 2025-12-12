@@ -403,6 +403,18 @@ const FieldEditor = ({
     prevVersion2Ref.current = v2;
     prevVersion3Ref.current = v3;
     
+    // Initialiser les traductions automatiques stockées depuis les languageVersions existantes
+    // Cela permet de détecter les modifications manuelles
+    field.languageVersions.forEach(lv => {
+      if (!autoTranslationsRef.current[lv.language]) {
+        autoTranslationsRef.current[lv.language] = {};
+      }
+      // Si la traduction auto n'est pas encore stockée, la stocker
+      if (!autoTranslationsRef.current[lv.language][lv.version]) {
+        autoTranslationsRef.current[lv.language][lv.version] = lv.value;
+      }
+    });
+    
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
   }, [field.id, field.languageVersions.length]); // Utiliser la longueur pour éviter les re-renders inutiles
@@ -442,14 +454,25 @@ const FieldEditor = ({
       
       // Traduire toutes les langues pour TOUTES les versions (pas seulement celles qui ont changé)
       // Mais seulement si la valeur source existe et n'est pas vide
+      // ET seulement si la traduction n'a pas été modifiée manuellement
       const translationPromises: Array<Promise<{ lang: string; version: number; text: string } | null>> = [];
       
       for (const targetLang of languagesToTranslate) {
         for (let version = 1; version <= 3; version++) {
           const sourceValue = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
           
-          // Traduire si la valeur source existe et n'est pas vide
-          if (sourceValue && sourceValue.trim()) {
+          // Vérifier si cette traduction a été modifiée manuellement
+          const existingTranslation = updatedField.languageVersions.find(
+            v => v.language === targetLang && v.version === version
+          );
+          const storedAutoTranslation = autoTranslationsRef.current[targetLang]?.[version];
+          const isManuallyModified = existingTranslation && storedAutoTranslation && 
+                                     existingTranslation.value !== storedAutoTranslation;
+          
+          // Traduire seulement si :
+          // 1. La valeur source existe et n'est pas vide
+          // 2. La traduction n'a pas été modifiée manuellement (ou n'existe pas encore)
+          if (sourceValue && sourceValue.trim() && !isManuallyModified) {
             const translationPromise = (async () => {
               try {
                 // Traduire directement depuis la valeur source actuelle
@@ -654,7 +677,8 @@ const FieldEditor = ({
                   const versionData = versions.find(v => v.version === version);
                   const currentValue = versionData?.value || '';
                   const autoTranslation = autoTranslationsRef.current[language]?.[version];
-                  const isManuallyModified = autoTranslation && currentValue !== autoTranslation && currentValue !== '';
+                  // Une traduction est manuellement modifiée si elle existe, qu'il y a une traduction auto, et qu'elles sont différentes
+                  const isManuallyModified = currentValue !== '' && autoTranslation && currentValue !== autoTranslation;
                   
                   return (
                     <div key={version} className="language-version-input-inline">
@@ -662,7 +686,26 @@ const FieldEditor = ({
                         <textarea
                           value={currentValue}
                           onChange={(e) => {
-                            const updatedField = addTranslationToField(field, language, e.target.value, version);
+                            const newValue = e.target.value;
+                            const updatedField = addTranslationToField(field, language, newValue, version);
+                            
+                            // Si on modifie manuellement et qu'il y a une traduction auto stockée
+                            if (autoTranslation && newValue !== autoTranslation) {
+                              // C'est une modification manuelle, on garde la traduction auto pour pouvoir réinitialiser
+                              // Ne pas mettre à jour la traduction auto stockée
+                            } else if (!autoTranslation && newValue) {
+                              // Si pas de traduction auto stockée et qu'on entre une valeur, la stocker comme auto
+                              if (!autoTranslationsRef.current[language]) {
+                                autoTranslationsRef.current[language] = {};
+                              }
+                              autoTranslationsRef.current[language][version] = newValue;
+                            } else if (newValue === '' && autoTranslation) {
+                              // Si on efface la valeur, effacer aussi la traduction auto stockée
+                              if (autoTranslationsRef.current[language]) {
+                                delete autoTranslationsRef.current[language][version];
+                              }
+                            }
+                            
                             onSave(updatedField);
                           }}
                           rows={2}

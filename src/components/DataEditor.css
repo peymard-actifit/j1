@@ -415,7 +415,7 @@
 }
 
 .version-input-wrapper.manually-modified {
-  background-color: #f3e8ff;
+  background-color: rgba(139, 92, 246, 0.2); /* Violet à 20% d'opacité */
   border-radius: 6px;
   padding: 2px;
 }
