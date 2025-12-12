@@ -984,14 +984,19 @@ const FieldEditor = ({
                               const newValue = e.target.value;
                               const updatedField = addTranslationToField(field, language, newValue, version);
                               
-                              if (autoTranslation && newValue !== autoTranslation) {
-                                // Modification manuelle
+                              // Si l'utilisateur modifie manuellement le texte, ne pas mettre à jour autoTranslationsRef
+                              // Cela permet de détecter que c'est une modification manuelle
+                              // Seulement si la valeur correspond exactement à la traduction auto, on la met à jour
+                              if (autoTranslation && newValue === autoTranslation) {
+                                // La valeur correspond à la traduction auto, tout va bien
+                              } else if (autoTranslation && newValue !== autoTranslation) {
+                                // Modification manuelle détectée - NE PAS mettre à jour autoTranslationsRef
+                                // Cela permet au fond violet de s'afficher
                               } else if (!autoTranslation && newValue) {
-                                if (!autoTranslationsRef.current[language]) {
-                                  autoTranslationsRef.current[language] = {};
-                                }
-                                autoTranslationsRef.current[language][version] = newValue;
+                                // Nouvelle valeur sans traduction auto existante
+                                // Ne pas la stocker comme auto-translation car c'est une modification manuelle
                               } else if (newValue === '' && autoTranslation) {
+                                // Champ vidé, supprimer la traduction auto
                                 if (autoTranslationsRef.current[language]) {
                                   delete autoTranslationsRef.current[language][version];
                                 }
