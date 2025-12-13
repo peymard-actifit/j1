@@ -483,11 +483,11 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   };
 
   if (embeddedMode) {
-    // Mode intégré dans DataEditor (sans overlay)
+    // Mode intégré dans DataEditor (sans overlay) - seulement l'affichage du document
     return (
       <div className="cv-import-new-embedded">
-        <div className="cv-import-new-content">
-          {/* Partie gauche : Affichage du CV */}
+        <div className="cv-import-new-content-embedded">
+          {/* Partie gauche : Affichage du CV uniquement */}
           <div className="cv-display-panel">
             <div className="cv-display-header">
               <h3>CV importé</h3>

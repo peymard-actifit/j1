@@ -31,6 +31,22 @@
   overflow: hidden;
 }
 
+.cv-import-new-content-embedded {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cv-import-new-content-embedded .cv-display-panel {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .cv-import-new-header {
   display: flex;
   justify-content: space-between;
