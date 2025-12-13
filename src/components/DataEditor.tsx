@@ -555,11 +555,12 @@ export const FieldEditor = ({
       if (!autoTranslationsRef.current[lv.language]) {
         autoTranslationsRef.current[lv.language] = {};
       }
-      // Si la traduction auto n'est pas encore stockée, la stocker
-      // Mais seulement si elle correspond à une traduction automatique (pas modifiée manuellement)
-      if (!autoTranslationsRef.current[lv.language][lv.version]) {
-        autoTranslationsRef.current[lv.language][lv.version] = lv.value;
-      }
+      // IMPORTANT: Ne pas initialiser autoTranslationsRef avec les valeurs existantes
+      // car on ne sait pas si elles ont été créées manuellement ou automatiquement
+      // On laisse autoTranslationsRef vide au départ, et on le remplira uniquement
+      // lors des traductions automatiques via translateVersion
+      // Cela garantit que isManuallyModified ne sera vrai que si l'utilisateur
+      // a réellement modifié manuellement après une traduction automatique
     });
     
     setIsInitialLoad(true);
@@ -1002,10 +1003,15 @@ export const FieldEditor = ({
                       const currentValue = versionData?.value || '';
                       const autoTranslation = autoTranslationsRef.current[language]?.[version];
                       // Une traduction est manuellement modifiée si :
+                      // - Ce n'est PAS la langue de travail (langue principale)
                       // - La valeur actuelle existe et n'est pas vide
-                      // - Il y a une traduction auto stockée
+                      // - Il y a une traduction auto stockée (donc une traduction automatique a été faite)
                       // - La valeur actuelle est différente de la traduction auto stockée
-                      const isManuallyModified = currentValue !== '' && autoTranslation !== undefined && currentValue !== autoTranslation;
+                      const isWorkingLanguage = language === workingLanguage;
+                      const isManuallyModified = !isWorkingLanguage && 
+                                                 currentValue !== '' && 
+                                                 autoTranslation !== undefined && 
+                                                 currentValue !== autoTranslation;
                       
                       return (
                         <div key={version} className="language-version-input-inline">

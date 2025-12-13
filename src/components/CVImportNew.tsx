@@ -270,7 +270,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
             >
               {fileType === 'application/pdf' && fileContent ? (
                 <iframe
-                  src={fileContent}
+                  src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=0`}
                   className="pdf-viewer"
                   title="CV PDF"
                 />

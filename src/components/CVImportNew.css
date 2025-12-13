@@ -142,6 +142,13 @@
   width: 100%;
   height: 100%;
   border: none;
+  /* Masquer la pagination et les contrôles du PDF */
+  overflow: hidden;
+}
+
+/* Masquer les éléments de pagination dans le PDF si possible */
+.pdf-viewer::-webkit-scrollbar {
+  display: none;
 }
 
 .text-content {
@@ -265,10 +272,13 @@
 }
 
 .fields-list {
-  width: 300px;
+  width: auto;
+  min-width: 120px;
+  max-width: 200px;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   background: #f9fafb;
+  flex-shrink: 0;
 }
 
 .field-item {
@@ -291,22 +301,21 @@
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  min-width: 0;
+  overflow: hidden;
 }
 
 .field-name {
   font-weight: 600;
   color: #333;
-  font-size: 0.95rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .field-tag {
-  font-size: 0.75rem;
-  color: #666;
-  background: #e0e0e0;
-  padding: 0.15rem 0.5rem;
-  border-radius: 4px;
-  display: inline-block;
-  width: fit-content;
+  display: none; /* Masquer le tag pour économiser de l'espace */
 }
 
 .field-editor-container {
