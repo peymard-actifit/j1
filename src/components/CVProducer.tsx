@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { UserDataField } from '../types/database';
+import { TemplateEditor } from './TemplateEditor';
 import './CVProducer.css';
 
 interface CVProducerProps {
@@ -44,9 +45,11 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
   const [templateFile, setTemplateFile] = useState<File | null>(null);
   const [templateType, setTemplateType] = useState<'excel' | 'word' | 'powerpoint' | null>(null);
   const [showTemplateModal, setShowTemplateModal] = useState(false);
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
   const [showPDFModal, setShowPDFModal] = useState(false);
   const [generatedPDFUrl, setGeneratedPDFUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [editingTemplateType, setEditingTemplateType] = useState<'excel' | 'word' | 'powerpoint' | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialiser la langue avec la langue de base de l'utilisateur
@@ -64,14 +67,23 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
         setTemplateType('excel');
         setTemplateFile(file);
         setShowTemplateModal(false);
+        // Ouvrir l'éditeur avec le fichier
+        setEditingTemplateType('excel');
+        setShowTemplateEditor(true);
       } else if (ext === 'docx' || ext === 'doc') {
         setTemplateType('word');
         setTemplateFile(file);
         setShowTemplateModal(false);
+        // Ouvrir l'éditeur avec le fichier
+        setEditingTemplateType('word');
+        setShowTemplateEditor(true);
       } else if (ext === 'pptx' || ext === 'ppt') {
         setTemplateType('powerpoint');
         setTemplateFile(file);
         setShowTemplateModal(false);
+        // Ouvrir l'éditeur avec le fichier
+        setEditingTemplateType('powerpoint');
+        setShowTemplateEditor(true);
       } else {
         alert('Format de fichier non supporté. Veuillez choisir un fichier Excel, Word ou PowerPoint.');
       }
@@ -82,8 +94,20 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
     setTemplateType(type);
     setTemplateFile(null);
     setShowTemplateModal(false);
-    // TODO: Ouvrir un éditeur de template pour créer un nouveau template
-    alert(`Création d'un nouveau template ${type} - À implémenter`);
+    // Ouvrir l'éditeur pour créer un nouveau template
+    setEditingTemplateType(type);
+    setShowTemplateEditor(true);
+  };
+
+  const handleTemplateSave = (savedFile: File) => {
+    setTemplateFile(savedFile);
+    setShowTemplateEditor(false);
+    setEditingTemplateType(null);
+  };
+
+  const handleTemplateEditorClose = () => {
+    setShowTemplateEditor(false);
+    setEditingTemplateType(null);
   };
 
   const replaceTagsInContent = (content: string, fields: UserDataField[]): string => {
@@ -297,6 +321,18 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
               </div>
             </div>
           </div>
+        )}
+
+        {/* Éditeur de template */}
+        {showTemplateEditor && editingTemplateType && user?.data && (
+          <TemplateEditor
+            type={editingTemplateType}
+            file={templateFile}
+            onSave={handleTemplateSave}
+            onClose={handleTemplateEditorClose}
+            fields={user.data}
+            selectedLanguage={selectedLanguage}
+          />
         )}
 
         {/* Modal d'affichage du PDF généré */}
