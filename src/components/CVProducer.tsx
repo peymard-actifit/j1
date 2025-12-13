@@ -259,7 +259,6 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
                 onClose={handleTemplateEditorClose}
                 fields={user.data}
                 selectedLanguage={selectedLanguage}
-                embeddedMode={true}
               />
             ) : (
               <div className="info-section">
