@@ -201,18 +201,16 @@ export const TemplateEditor = ({
   };
 
   return (
-    <div className="template-editor-overlay" onClick={onClose}>
-      <div className="template-editor" onClick={(e) => e.stopPropagation()}>
-        <div className="template-editor-header">
-          <h3>
-            {type === 'excel' && '📊 Éditeur Excel'}
-            {type === 'word' && '📝 Éditeur Word'}
-            {type === 'powerpoint' && '📊 Éditeur PowerPoint'}
-          </h3>
-          <button className="close-editor-button" onClick={onClose}>✕</button>
-        </div>
-
-        <div className="template-editor-content">
+    <div className="template-editor-embedded">
+      <div className="template-editor-header-embedded">
+        <h4>
+          {type === 'excel' && '📊 Éditeur Excel'}
+          {type === 'word' && '📝 Éditeur Word'}
+          {type === 'powerpoint' && '📊 Éditeur PowerPoint'}
+        </h4>
+        <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
+      </div>
+      <div className="template-editor-content-embedded">
           <div className="editor-toolbar">
             <div className="toolbar-section">
               <label>Nom du fichier:</label>
