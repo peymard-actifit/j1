@@ -250,20 +250,34 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
             </button>
           </div>
 
-          <div className="cv-producer-info">
-            <div className="info-section">
-              <h4>Format des tags dans les templates</h4>
-              <p>Utilisez le format <code>{'{tag,version}'}</code> dans vos templates pour référencer les champs.</p>
-              <p>Exemples :</p>
-              <ul>
-                <li><code>{'{nom,1}'}</code> - Nom (version 1)</li>
-                <li><code>{'{prenom,1}'}</code> - Prénom (version 1)</li>
-                <li><code>{'{email,1}'}</code> - Email (version 1)</li>
-                <li><code>{'{XP01,1}'}</code> - Expérience 1, champ 1</li>
-                <li><code>{'{XP01,2}'}</code> - Expérience 1, champ 2</li>
-              </ul>
+          {showTemplateEditor && editingTemplateType && user?.data ? (
+            <div className="cv-producer-editor-container">
+              <TemplateEditor
+                type={editingTemplateType}
+                file={templateFile}
+                onSave={handleTemplateSave}
+                onClose={handleTemplateEditorClose}
+                fields={user.data}
+                selectedLanguage={selectedLanguage}
+                embeddedMode={true}
+              />
             </div>
-          </div>
+          ) : (
+            <div className="cv-producer-info">
+              <div className="info-section">
+                <h4>Format des tags dans les templates</h4>
+                <p>Utilisez le format <code>{'{tag,version}'}</code> dans vos templates pour référencer les champs.</p>
+                <p>Exemples :</p>
+                <ul>
+                  <li><code>{'{nom,1}'}</code> - Nom (version 1)</li>
+                  <li><code>{'{prenom,1}'}</code> - Prénom (version 1)</li>
+                  <li><code>{'{email,1}'}</code> - Email (version 1)</li>
+                  <li><code>{'{XP01,1}'}</code> - Expérience 1, champ 1</li>
+                  <li><code>{'{XP01,2}'}</code> - Expérience 1, champ 2</li>
+                </ul>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Modal de sélection/création de template */}
@@ -321,18 +335,6 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
               </div>
             </div>
           </div>
-        )}
-
-        {/* Éditeur de template */}
-        {showTemplateEditor && editingTemplateType && user?.data && (
-          <TemplateEditor
-            type={editingTemplateType}
-            file={templateFile}
-            onSave={handleTemplateSave}
-            onClose={handleTemplateEditorClose}
-            fields={user.data}
-            selectedLanguage={selectedLanguage}
-          />
         )}
 
         {/* Modal d'affichage du PDF généré */}

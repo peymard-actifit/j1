@@ -110,6 +110,14 @@
   padding: 2rem;
 }
 
+.cv-producer-editor-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  background: white;
+}
+
 .info-section {
   max-width: 800px;
   margin: 0 auto;

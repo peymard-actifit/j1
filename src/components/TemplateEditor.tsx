@@ -9,6 +9,7 @@ interface TemplateEditorProps {
   onClose: () => void;
   fields: UserDataField[];
   selectedLanguage: string; // Utilisé pour la génération future
+  embeddedMode?: boolean; // Mode intégré dans CVProducer
 }
 
 export const TemplateEditor = ({ 
