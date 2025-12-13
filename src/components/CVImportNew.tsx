@@ -72,6 +72,90 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     }
   };
 
+  // Fonction pour vérifier si une valeur existe déjà dans un champ
+  const valueExistsInField = (field: UserDataField, value: string, language: string): boolean => {
+    const normalizedValue = value.trim().toLowerCase();
+    if (language === field.baseLanguage) {
+      for (const aiVersion of field.aiVersions || []) {
+        if (aiVersion.value.trim().toLowerCase() === normalizedValue) return true;
+      }
+    } else {
+      for (const langVersion of field.languageVersions || []) {
+        if (langVersion.language === language && langVersion.value.trim().toLowerCase() === normalizedValue) return true;
+      }
+    }
+    return false;
+  };
+
+  // Fonction pour trouver la première version disponible (ou la version 3 si toutes sont remplies)
+  const findAvailableVersion = (field: UserDataField, language: string): 1 | 2 | 3 => {
+    if (language === field.baseLanguage) {
+      const existingVersions = (field.aiVersions || []).map(v => v.version);
+      for (let v = 1; v <= 3; v++) {
+        if (!existingVersions.includes(v)) return v as 1 | 2 | 3;
+      }
+      return 3;
+    } else {
+      const existingVersions = (field.languageVersions || []).filter(lv => lv.language === language).map(lv => lv.version);
+      for (let v = 1; v <= 3; v++) {
+        if (!existingVersions.includes(v)) return v as 1 | 2 | 3;
+      }
+      return 3;
+    }
+  };
+
+  // Fonction pour mapper automatiquement les données extraites aux champs
+  const autoMapCVData = async (extracted: any, fields: UserDataField[], targetLanguage: string): Promise<UserDataField[]> => {
+    const fieldMap: Record<string, string[]> = {
+      'prenom': ['firstname', 'firstName', 'prenom', 'prénom'],
+      'nom': ['lastname', 'lastName', 'nom', 'surname'],
+      'mail': ['email', 'mail', 'courriel'],
+      'telephone': ['phone', 'telephone', 'tel', 'mobile'],
+      'posterecherche': ['jobtitle', 'jobTitle', 'posterecherche', 'position'],
+      'resumeprofessionnel': ['summary', 'resume', 'résumé', 'profil'],
+    };
+    const mappedKeys = new Set<string>();
+    const updatedFields = fields.map(f => ({ ...f }));
+
+    // Mapper les champs simples
+    Object.entries(extracted).forEach(([key, value]) => {
+      if (!value || typeof value === 'object' || Array.isArray(value)) return;
+      const valueStr = String(value).trim();
+      if (!valueStr) return;
+
+      updatedFields.forEach((field) => {
+        if (mappedKeys.has(key)) return;
+        const possibleKeys = fieldMap[field.id] || [field.tag.toLowerCase(), field.name.toLowerCase(), field.id.toLowerCase()];
+        const keyLower = key.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const matches = possibleKeys.some(pk => {
+          const pkClean = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
+          return keyLower === pkClean || keyLower.includes(pkClean) || pkClean.includes(keyLower);
+        });
+
+        if (matches && !valueExistsInField(field, valueStr, targetLanguage)) {
+          const availableVersion = findAvailableVersion(field, targetLanguage);
+          if (targetLanguage === field.baseLanguage) {
+            const existingVersions = field.aiVersions || [];
+            const versionIndex = existingVersions.findIndex(v => v.version === availableVersion);
+            if (versionIndex >= 0) {
+              existingVersions[versionIndex].value = valueStr;
+            } else {
+              existingVersions.push({ version: availableVersion, value: valueStr, createdAt: new Date().toISOString() });
+              existingVersions.sort((a, b) => a.version - b.version);
+            }
+            field.aiVersions = existingVersions;
+          } else {
+            const updated = addTranslationToField(field, targetLanguage, valueStr, availableVersion);
+            Object.assign(field, updated);
+          }
+          mappedKeys.add(key);
+        }
+      });
+    });
+
+    return updatedFields;
+  };
+
   const handleImport = async () => {
     if (!file) {
       return;
@@ -81,10 +165,20 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     setAnalysisProgress('Démarrage de l\'analyse...');
 
     try {
-      // Analyser avec l'API IA
       setAnalysisProgress('Extraction du texte du CV...');
-      await analyzeCVFile(file, userFields);
-      setAnalysisProgress('Analyse terminée. Vous pouvez maintenant sélectionner du texte dans le CV.');
+      const analysis = await analyzeCVFile(file, userFields);
+      
+      setAnalysisProgress('Parsing des données et remplissage automatique des champs...');
+      const updatedFields = await autoMapCVData(analysis, userFields, workingLanguage);
+      setUserFields(updatedFields);
+      
+      if (user && setUser) {
+        const updatedUser = { ...user, data: updatedFields };
+        const savedUser = await storage.saveUser(updatedUser);
+        setUser(savedUser);
+      }
+      
+      setAnalysisProgress('Import terminé ! Les données ont été automatiquement placées dans les champs.');
     } catch (error: any) {
       console.error('Error analyzing CV:', error);
       setAnalysisProgress(`Erreur: ${error.message}`);
