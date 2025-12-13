@@ -1144,7 +1144,7 @@ export const initializeDefaultStructure = (): UserDataField[] => {
         },
       ];
     }).flat(),
-    // Expériences associatives (1 à 5)
+    // Expériences associatives (1 à 5) - Déplacées à la fin
     ...Array.from({ length: 5 }, (_, i): UserDataField[] => {
       const num = String(i + 1).padStart(2, '0');
       return [
@@ -1172,7 +1172,7 @@ export const initializeDefaultStructure = (): UserDataField[] => {
         },
       ];
     }).flat(),
-    // Publications (1 à 5)
+    // Publications (1 à 5) - Déplacées à la fin
     ...Array.from({ length: 5 }, (_, i): UserDataField => {
       const num = i + 1;
       return {
@@ -1187,7 +1187,7 @@ export const initializeDefaultStructure = (): UserDataField[] => {
         updatedAt: now,
       };
     }),
-    // Présentations (1 à 5)
+    // Présentations (1 à 5) - Déplacées à la fin
     ...Array.from({ length: 5 }, (_, i): UserDataField => {
       const num = i + 1;
       return {
