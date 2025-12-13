@@ -48,13 +48,29 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const extractPdfTextWithPdfJs = async (file: File): Promise<void> => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
-      // Configurer le worker - utiliser un CDN fiable ou le worker local
-      // Essayer d'abord avec un CDN alternatif, sinon utiliser jsdelivr
-      try {
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
-      } catch {
-        // Fallback vers unpkg
-        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+      // Configurer le worker depuis le dossier public (copié lors du build)
+      // Essayer d'abord le worker local, puis les CDN en fallback
+      const workerPaths = [
+        '/pdf.worker.min.mjs', // Worker local dans public
+        `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`, // unpkg avec .mjs
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`, // jsdelivr avec .mjs
+        `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`, // unpkg avec .js
+      ];
+      
+      // Essayer chaque chemin jusqu'à ce qu'un fonctionne
+      let workerSet = false;
+      for (const workerPath of workerPaths) {
+        try {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
+          workerSet = true;
+          break;
+        } catch (e) {
+          continue;
+        }
+      }
+      
+      if (!workerSet) {
+        throw new Error('Impossible de configurer le worker pdf.js');
       }
       
       const arrayBuffer = await file.arrayBuffer();
