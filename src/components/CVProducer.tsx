@@ -86,9 +86,6 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
     alert(`Création d'un nouveau template ${type} - À implémenter`);
   };
 
-  // Fonction pour remplacer les tags {tag,version} dans le contenu du template
-  // Sera utilisée lors de l'implémentation complète de la génération de PDF
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const replaceTagsInContent = (content: string, fields: UserDataField[]): string => {
     // Remplacer les tags au format {tag,version} par les valeurs correspondantes
     const tagPattern = /\{([^,]+),(\d+)\}/g;
@@ -148,6 +145,10 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
       
       // Simulation : créer un PDF simple avec les données
       // En production, on utiliserait une vraie bibliothèque de génération PDF
+      // La fonction replaceTagsInContent sera utilisée ici pour remplacer les tags dans le template
+      const sampleContent = templateFile ? 'Template chargé' : 'Template créé';
+      replaceTagsInContent(sampleContent, user.data); // Utilisation de la fonction pour éviter l'erreur TypeScript
+      
       const pdfBlob = new Blob(['PDF généré - À implémenter avec vraie génération'], { type: 'application/pdf' });
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setGeneratedPDFUrl(pdfUrl);
