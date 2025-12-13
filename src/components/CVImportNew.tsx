@@ -333,27 +333,31 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
               onSelect={handleTextSelection}
             >
               {fileType === 'application/pdf' && pdfTextContent ? (
-                <div className="text-content">
+                <div 
+                  className="text-content"
+                  onMouseUp={handleTextSelection}
+                  onSelect={handleTextSelection}
+                >
                   {pdfTextContent.split('\n').map((line, idx) => {
                     const isSelected = selectedText ? line.includes(selectedText) : false;
                     return (
                       <div
                         key={idx}
                         className={`text-line ${isSelected ? 'selected-text' : ''}`}
-                        draggable={isSelected && !!selectedText}
+                        draggable={!!selectedText && selectedText.trim().length > 0}
                         onDragStart={(e) => {
-                          if (selectedText) {
+                          if (selectedText && selectedText.trim().length > 0) {
                             handleDragStart(e, selectedText);
                           }
                         }}
                         onMouseDown={(e) => {
-                          if (isSelected && selectedText) {
-                            // Permettre de recliquer pour glisser
-                            e.preventDefault();
+                          // Permettre la sélection de texte
+                          if (selectedText && selectedText.trim().length > 0) {
+                            // Ne pas empêcher la sélection
                           }
                         }}
                       >
-                        {line}
+                        {line || '\u00A0'}
                       </div>
                     );
                   })}

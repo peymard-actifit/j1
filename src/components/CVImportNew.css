@@ -304,6 +304,9 @@
   cursor: text;
   transition: background 0.2s;
   user-select: text;
+  -webkit-user-select: text;
+  -moz-user-select: text;
+  -ms-user-select: text;
 }
 
 .text-line:hover {
@@ -312,7 +315,19 @@
 
 .text-line.selected-text {
   background: #e3f2fd;
+}
+
+.text-content::selection {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.text-line[draggable="true"] {
   cursor: grab;
+}
+
+.text-line[draggable="true"]:active {
+  cursor: grabbing;
 }
 
 .text-line.selected-text:hover {
