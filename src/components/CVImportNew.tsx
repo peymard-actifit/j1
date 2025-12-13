@@ -48,8 +48,11 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const extractPdfTextWithPdfJs = async (file: File): Promise<void> => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
-      // Configurer le worker
-      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      // Configurer le worker depuis node_modules
+      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+        'pdfjs-dist/build/pdf.worker.min.js',
+        import.meta.url
+      ).toString();
       
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
@@ -92,24 +95,24 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
         if (selectedFile.type === 'application/pdf') {
           setExtractingPdfText(true);
           try {
-            // Essayer d'abord avec l'API documint
-            const { api } = await import('../utils/api');
-            const result = await api.extractPdfText(content);
-            if (result.success && result.text && result.text.trim().length > 0) {
-              setPdfTextContent(result.text);
-            } else {
-              // Fallback : utiliser pdf.js côté client
-              await extractPdfTextWithPdfJs(selectedFile);
-            }
-          } catch (error) {
-            console.error('Error extracting PDF text with API:', error);
-            // Fallback : utiliser pdf.js côté client
+            // Essayer d'abord avec l'API documint (si disponible)
             try {
-              await extractPdfTextWithPdfJs(selectedFile);
-            } catch (pdfJsError) {
-              console.error('Error extracting PDF text with pdf.js:', pdfJsError);
-              setPdfTextContent('Erreur lors de l\'extraction du texte du PDF. Veuillez réessayer ou utiliser un autre format.');
+              const { api } = await import('../utils/api');
+              const result = await api.extractPdfText(content);
+              if (result && result.success && result.text && result.text.trim().length > 0) {
+                setPdfTextContent(result.text);
+                setExtractingPdfText(false);
+                return;
+              }
+            } catch (apiError) {
+              console.warn('API extraction failed, trying pdf.js:', apiError);
             }
+            
+            // Fallback : utiliser pdf.js côté client
+            await extractPdfTextWithPdfJs(selectedFile);
+          } catch (error) {
+            console.error('Error extracting PDF text:', error);
+            setPdfTextContent('Erreur lors de l\'extraction du texte du PDF. Veuillez réessayer ou utiliser un autre format.');
           } finally {
             setExtractingPdfText(false);
           }

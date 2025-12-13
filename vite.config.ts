@@ -12,6 +12,18 @@ export default defineConfig({
   define: {
     'import.meta.env.VITE_APP_VERSION': JSON.stringify(appVersion),
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist'],
+  },
+  build: {
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'pdf': ['pdfjs-dist'],
+        },
+      },
+    },
+  },
 })
 
 

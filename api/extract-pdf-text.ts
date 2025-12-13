@@ -38,23 +38,29 @@ export default async function handler(
           });
         } else {
           const errorText = await documintResponse.text();
-          console.error('Documint API error:', errorText);
-          return res.status(500).json({
+          console.error('Documint API error:', errorText, 'Status:', documintResponse.status);
+          // Ne pas retourner d'erreur 500, laisser le client utiliser pdf.js
+          return res.status(200).json({
             success: false,
             error: 'Erreur lors de l\'extraction du texte avec documint',
+            text: '',
           });
         }
       } catch (documintError: any) {
         console.error('Error calling documint:', documintError);
-        return res.status(500).json({
+        // Ne pas retourner d'erreur 500, laisser le client utiliser pdf.js
+        return res.status(200).json({
           success: false,
           error: documintError.message || 'Erreur lors de l\'appel à documint',
+          text: '',
         });
       }
     } else {
-      return res.status(500).json({
+      // DOCUMINT_API_KEY non configurée, retourner success: false pour utiliser pdf.js
+      return res.status(200).json({
         success: false,
         error: 'DOCUMINT_API_KEY non configurée',
+        text: '',
       });
     }
   } catch (error: any) {
