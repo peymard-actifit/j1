@@ -40,7 +40,7 @@
   background: white;
   border-bottom: 1px solid #e0e0e0;
   display: flex;
-  gap: 1.5rem;
+  gap: 1rem;
   align-items: center;
   flex-wrap: wrap;
 }
@@ -51,49 +51,34 @@
   gap: 0.5rem;
 }
 
-.control-group label {
-  font-weight: 600;
-  color: #333;
-  font-size: 0.9rem;
-}
-
-.language-select,
-.template-select {
+.language-select {
   padding: 0.5rem 1rem;
   border: 2px solid #e0e0e0;
   border-radius: 6px;
   font-size: 0.9rem;
   cursor: pointer;
   background: white;
+  min-width: 200px;
 }
 
-.language-select:hover,
-.template-select:hover {
+.language-select:hover {
   border-color: #667eea;
 }
 
-.mode-toggle {
-  display: flex;
-  gap: 0.25rem;
-  background: #f0f0f0;
-  border-radius: 6px;
-  padding: 0.25rem;
-}
-
-.mode-toggle button {
+.template-button {
   padding: 0.5rem 1rem;
-  border: none;
-  border-radius: 4px;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
   cursor: pointer;
+  background: white;
   font-weight: 600;
-  background: transparent;
-  color: #666;
   transition: all 0.2s;
 }
 
-.mode-toggle button.active {
-  background: #667eea;
-  color: white;
+.template-button:hover {
+  border-color: #667eea;
+  background: #f5f5f5;
 }
 
 .generate-pdf-button {
@@ -118,88 +103,239 @@
   cursor: not-allowed;
 }
 
-.cv-producer-preview {
+.cv-producer-info {
   flex: 1;
   overflow: auto;
   background: white;
   padding: 2rem;
 }
 
-.cv-preview-container {
+.info-section {
   max-width: 800px;
   margin: 0 auto;
-  background: white;
-  padding: 2rem;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
 }
 
-.cv-preview-content {
-  font-family: 'Arial', sans-serif;
+.info-section h4 {
+  margin: 0 0 1rem 0;
+  color: #333;
+  font-size: 1.2rem;
+}
+
+.info-section p {
+  margin: 0.5rem 0;
+  color: #666;
   line-height: 1.6;
-  color: #333;
 }
 
-.cv-preview-header {
-  text-align: center;
-  margin-bottom: 2rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid #667eea;
-}
-
-.cv-preview-header h1 {
-  margin: 0 0 0.5rem 0;
-  font-size: 2rem;
-  color: #333;
-}
-
-.cv-preview-contact {
-  display: flex;
-  justify-content: center;
-  gap: 1.5rem;
-  flex-wrap: wrap;
-  font-size: 0.9rem;
-  color: #666;
-}
-
-.cv-preview-section {
-  margin-top: 2rem;
-}
-
-.cv-preview-section h2 {
-  font-size: 1.5rem;
+.info-section code {
+  background: #f5f5f5;
+  padding: 0.2rem 0.5rem;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
   color: #667eea;
-  margin-bottom: 1rem;
-  padding-bottom: 0.5rem;
-  border-bottom: 1px solid #e0e0e0;
-}
-
-.cv-preview-item {
-  margin-bottom: 1.5rem;
-}
-
-.cv-preview-item h3 {
-  margin: 0 0 0.25rem 0;
-  font-size: 1.1rem;
-  color: #333;
-}
-
-.cv-preview-company {
-  margin: 0 0 0.5rem 0;
   font-weight: 600;
+}
+
+.info-section ul {
+  margin: 1rem 0;
+  padding-left: 2rem;
+}
+
+.info-section li {
+  margin: 0.5rem 0;
   color: #666;
 }
 
-.cv-preview-description {
-  margin: 0;
-  color: #555;
-  font-size: 0.95rem;
-}
-
-.cv-pdf-container {
+/* Modal de template */
+.template-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
+  z-index: 1000;
+}
+
+.template-modal {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.template-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+}
+
+.template-modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.close-modal-button {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.close-modal-button:hover {
+  background: #d32f2f;
+}
+
+.template-modal-content {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+}
+
+.template-option {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.template-option h4 {
+  margin: 0;
+  color: #333;
+}
+
+.template-action-button {
+  padding: 0.75rem 1.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 1rem;
+  transition: background 0.3s;
+}
+
+.template-action-button:hover {
+  background: #5568d3;
+}
+
+.template-hint {
+  margin: 0.5rem 0 0 0;
+  font-size: 0.85rem;
   color: #666;
+  font-style: italic;
+}
+
+.template-divider {
+  text-align: center;
+  color: #999;
+  font-weight: 600;
+  position: relative;
+}
+
+.template-divider::before,
+.template-divider::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  width: 40%;
+  height: 1px;
+  background: #e0e0e0;
+}
+
+.template-divider::before {
+  left: 0;
+}
+
+.template-divider::after {
+  right: 0;
+}
+
+.template-create-buttons {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+/* Modal PDF */
+.pdf-modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+}
+
+.pdf-modal {
+  background: white;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 1200px;
+  height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.pdf-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.pdf-modal-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.pdf-modal-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.download-pdf-button {
+  padding: 0.5rem 1rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.download-pdf-button:hover {
+  background: #45a049;
+}
+
+.pdf-modal-content {
+  flex: 1;
+  overflow: hidden;
+  padding: 1rem;
+}
+
+.pdf-preview-iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+  border-radius: 8px;
 }
 
