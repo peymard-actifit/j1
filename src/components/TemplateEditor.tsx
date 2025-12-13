@@ -17,7 +17,7 @@ export const TemplateEditor = ({
   onSave, 
   onClose, 
   fields,
-  selectedLanguage 
+  selectedLanguage: _selectedLanguage // Sera utilisé pour la génération future
 }: TemplateEditorProps) => {
   const [content, setContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
