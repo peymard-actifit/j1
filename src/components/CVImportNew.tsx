@@ -44,6 +44,37 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     }
   }, [user?.id]);
 
+  // Fonction pour extraire le texte du PDF avec pdf.js (solution de secours)
+  const extractPdfTextWithPdfJs = async (file: File): Promise<void> => {
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      // Configurer le worker
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      let fullText = '';
+      for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const textContent = await page.getTextContent();
+        const pageText = textContent.items
+          .map((item: any) => item.str)
+          .join(' ');
+        fullText += pageText + '\n\n';
+      }
+      
+      if (fullText.trim().length > 0) {
+        setPdfTextContent(fullText.trim());
+      } else {
+        setPdfTextContent('Aucun texte n\'a pu être extrait du PDF. Le PDF pourrait être une image scannée.');
+      }
+    } catch (error) {
+      console.error('Error with pdf.js:', error);
+      throw error;
+    }
+  };
+
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = e.target.files?.[0];
     if (selectedFile) {
@@ -61,18 +92,24 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
         if (selectedFile.type === 'application/pdf') {
           setExtractingPdfText(true);
           try {
-            // Utiliser l'API documint pour extraire le texte du PDF
+            // Essayer d'abord avec l'API documint
             const { api } = await import('../utils/api');
             const result = await api.extractPdfText(content);
-            if (result.success && result.text) {
+            if (result.success && result.text && result.text.trim().length > 0) {
               setPdfTextContent(result.text);
             } else {
-              // Fallback : afficher un message
-              setPdfTextContent('Impossible d\'extraire le texte du PDF. Veuillez utiliser un autre format.');
+              // Fallback : utiliser pdf.js côté client
+              await extractPdfTextWithPdfJs(selectedFile);
             }
           } catch (error) {
-            console.error('Error extracting PDF text:', error);
-            setPdfTextContent('Erreur lors de l\'extraction du texte du PDF.');
+            console.error('Error extracting PDF text with API:', error);
+            // Fallback : utiliser pdf.js côté client
+            try {
+              await extractPdfTextWithPdfJs(selectedFile);
+            } catch (pdfJsError) {
+              console.error('Error extracting PDF text with pdf.js:', pdfJsError);
+              setPdfTextContent('Erreur lors de l\'extraction du texte du PDF. Veuillez réessayer ou utiliser un autre format.');
+            }
           } finally {
             setExtractingPdfText(false);
           }
