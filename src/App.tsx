@@ -15,7 +15,6 @@ const AppContent = () => {
   const [showImport, setShowImport] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [showWelcome, setShowWelcome] = useState(false);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -68,7 +67,7 @@ const AppContent = () => {
       // Attendre un peu pour s'assurer que tout est bien chargé
       setTimeout(() => {
         if (pendingChoice === 'cv') {
-          setShowCVUpload(true);
+          setShowImport(true);
           setPendingChoice(null);
         } else {
           // Partir de zéro - initialiser avec structure par défaut
@@ -104,7 +103,7 @@ const AppContent = () => {
       // Utilisateur connecté, procéder directement
       setShowWelcome(false);
       if (hasCV) {
-        setShowCVUpload(true);
+        setShowImport(true);
       } else {
         // Partir de zéro - initialiser avec structure par défaut
         if (user.data.length === 0) {
@@ -141,6 +140,14 @@ const AppContent = () => {
   // Afficher l'écran de bienvenue pour les non-connectés
   if (!user && !showLogin) {
     return <WelcomeScreen onChoice={handleWelcomeChoice} />;
+  }
+
+  // Afficher l'écran de login si demandé
+  if (showLogin && !user) {
+    return <LoginScreen onClose={() => {
+      setShowLogin(false);
+      setPendingChoice(null);
+    }} />;
   }
 
   // Si l'utilisateur n'est pas connecté, ne rien afficher d'autre
