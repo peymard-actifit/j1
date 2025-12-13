@@ -7,6 +7,7 @@ import { api } from '../utils/api';
 import './DataEditor.css';
 
 import { CVImportNew } from './CVImportNew';
+import { CVProducer } from './CVProducer';
 
 interface DataEditorProps {
   onClose?: () => void;
