@@ -279,29 +279,50 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   // Écouteur global pour détecter les changements de sélection
   useEffect(() => {
     const handleSelectionChange = () => {
-      const selection = window.getSelection();
-      if (selection && selection.toString().trim()) {
-        // Vérifier que la sélection est dans la zone du PDF
-        const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-        if (range) {
-          const container = range.commonAncestorContainer;
-          const pdfContainer = cvDisplayRef.current?.querySelector('.pdf-container');
-          if (pdfContainer && (pdfContainer.contains(container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Node))) {
-            handleTextSelection();
-          }
-        } else {
-          // Si pas de range, essayer quand même (peut venir de l'embed)
-          handleTextSelection();
-        }
+      // Délai pour laisser le temps à la sélection de se compléter
+      if (selectionTimeoutRef.current) {
+        clearTimeout(selectionTimeoutRef.current);
       }
+      
+      selectionTimeoutRef.current = setTimeout(() => {
+        const selection = window.getSelection();
+        if (selection && selection.toString().trim()) {
+          const text = selection.toString().trim();
+          // Vérifier que la sélection est dans la zone du CV
+          const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+          let isInCVArea = false;
+          
+          if (range) {
+            const container = range.commonAncestorContainer;
+            const cvDisplay = cvDisplayRef.current;
+            if (cvDisplay) {
+              // Vérifier si la sélection est dans la zone d'affichage du CV
+              const node = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Node;
+              if (node && cvDisplay.contains(node)) {
+                isInCVArea = true;
+              }
+            }
+          } else {
+            // Si pas de range, supposer que c'est dans le PDF (embed peut ne pas exposer de range)
+            isInCVArea = true;
+          }
+          
+          if (isInCVArea && text.length > 0) {
+            setSelectedText(text);
+            setShowFieldSelectionModal(true);
+          }
+        }
+      }, 150);
     };
 
+    // Écouter les changements de sélection
     document.addEventListener('selectionchange', handleSelectionChange);
-    document.addEventListener('mouseup', handleTextSelection);
+    // Écouter aussi mouseup pour capturer les sélections dans les embeds
+    document.addEventListener('mouseup', handleSelectionChange);
     
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
-      document.removeEventListener('mouseup', handleTextSelection);
+      document.removeEventListener('mouseup', handleSelectionChange);
       if (selectionTimeoutRef.current) {
         clearTimeout(selectionTimeoutRef.current);
       }
