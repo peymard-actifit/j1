@@ -347,7 +347,11 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                   onMouseUp={handleTextSelection}
                   onSelect={handleTextSelection}
                 >
-                  {pdfTextContent.split(/\n+/).filter(line => line.trim().length > 0).map((line, idx) => {
+                  {pdfTextContent.split('\n').map((line, idx) => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine.length === 0) {
+                      return <div key={idx} className="text-line-empty">&nbsp;</div>;
+                    }
                     const isSelected = selectedText ? line.includes(selectedText) : false;
                     return (
                       <div
@@ -363,7 +367,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                           // Permettre la sélection de texte
                         }}
                       >
-                        {line.trim()}
+                        {line}
                       </div>
                     );
                   })}
