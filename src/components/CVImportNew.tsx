@@ -627,6 +627,15 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                   >
                     + Champ
                   </button>
+                  {selectedFields.size > 1 && (
+                    <button 
+                      onClick={() => setSelectedFields(new Set())} 
+                      className="clear-selection-button"
+                      title="Désélectionner"
+                    >
+                      ✕ {selectedFields.size}
+                    </button>
+                  )}
                 </div>
                 {showAddField && (
                   <div className="add-field-form-import">
