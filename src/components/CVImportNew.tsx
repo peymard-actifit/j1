@@ -48,11 +48,14 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const extractPdfTextWithPdfJs = async (file: File): Promise<void> => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
-      // Configurer le worker depuis node_modules
-      pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
-        'pdfjs-dist/build/pdf.worker.min.js',
-        import.meta.url
-      ).toString();
+      // Configurer le worker - utiliser un CDN fiable ou le worker local
+      // Essayer d'abord avec un CDN alternatif, sinon utiliser jsdelivr
+      try {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+      } catch {
+        // Fallback vers unpkg
+        pdfjsLib.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`;
+      }
       
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
