@@ -165,9 +165,63 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     }
   };
 
+  // Fonction pour extraire toutes les données du CV, même celles qui ne correspondent pas
+  const extractAllData = (extracted: ExtractedData): Array<{ key: string; value: string }> => {
+    const allData: Array<{ key: string; value: string }> = [];
+    
+    // Parcourir toutes les clés de l'objet extrait
+    Object.entries(extracted).forEach(([key, value]) => {
+      if (value === null || value === undefined) return;
+      
+      if (Array.isArray(value)) {
+        // Pour les tableaux (expériences, formations, etc.)
+        value.forEach((item: any, idx: number) => {
+          if (typeof item === 'object' && item !== null) {
+            // Objet (expérience, formation, etc.)
+            Object.entries(item).forEach(([subKey, subValue]) => {
+              if (subValue !== null && subValue !== undefined && subValue !== '') {
+                allData.push({
+                  key: `${key}[${idx}].${subKey}`,
+                  value: String(subValue).trim()
+                });
+              }
+            });
+          } else if (typeof item === 'string' && item.trim()) {
+            // Tableau de strings (compétences, etc.)
+            allData.push({
+              key: `${key}[${idx}]`,
+              value: item.trim()
+            });
+          }
+        });
+      } else if (typeof value === 'object' && value !== null) {
+        // Objet imbriqué (other, etc.)
+        Object.entries(value).forEach(([subKey, subValue]) => {
+          if (subValue !== null && subValue !== undefined && subValue !== '') {
+            allData.push({
+              key: `${key}.${subKey}`,
+              value: String(subValue).trim()
+            });
+          }
+        });
+      } else if (typeof value === 'string' && value.trim()) {
+        // Valeur simple
+        allData.push({
+          key,
+          value: value.trim()
+        });
+      }
+    });
+    
+    return allData;
+  };
+
   const generateAutoMappings = (extracted: ExtractedData, fields: UserDataField[]): FieldMapping[] => {
     const mappings: FieldMapping[] = [];
     const baseLanguage = user?.baseLanguage || 'fr';
+    
+    // Extraire TOUTES les données du CV
+    const allExtractedData = extractAllData(extracted);
 
     // Mapping automatique amélioré basé sur les tags et noms de champs
     // Ajout de plus de variations pour améliorer la reconnaissance
@@ -191,6 +245,8 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     };
 
     // Parcourir les champs utilisateur et créer des mappings automatiques
+    const mappedKeys = new Set<string>(); // Pour éviter les doublons
+    
     fields.forEach(field => {
       const possibleKeys = fieldMap[field.id] || [
         field.tag.toLowerCase(),
@@ -202,8 +258,10 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
         field.tag.toLowerCase().replace(/-/g, ''),
       ];
       
-      // Chercher une correspondance dans les données extraites
-      for (const [key, value] of Object.entries(extracted)) {
+      // Chercher une correspondance dans toutes les données extraites
+      allExtractedData.forEach(({ key, value }) => {
+        if (mappedKeys.has(key)) return; // Déjà mappé
+        
         const keyLower = key.toLowerCase().replace(/[^a-z0-9]/g, '');
         const matches = possibleKeys.some(pk => {
           const pkClean = pk.toLowerCase().replace(/[^a-z0-9]/g, '');
@@ -216,37 +274,39 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                  pk.toLowerCase().includes(key.toLowerCase());
         });
         
-        if (matches && value !== null && value !== undefined) {
-          let stringValue = '';
-          if (typeof value === 'string') {
-            stringValue = value.trim();
-          } else if (Array.isArray(value)) {
-            stringValue = value.join(', ');
-          } else {
-            stringValue = String(value);
-          }
+        if (matches && value && value.trim()) {
+          // Vérifier si la valeur existe déjà dans le champ
+          const existsCheck = valueExistsInField(field, value, baseLanguage);
           
-          if (stringValue) {
-            // Vérifier si la valeur existe déjà dans le champ
-            const existsCheck = valueExistsInField(field, stringValue, baseLanguage);
+          if (!existsCheck.exists) {
+            // Trouver la première version disponible
+            const availableVersion = findAvailableVersion(field, baseLanguage);
             
-            if (!existsCheck.exists) {
-              // Trouver la première version disponible
-              const availableVersion = findAvailableVersion(field, baseLanguage);
-              
-              mappings.push({
-                fieldId: field.id,
-                extractedKey: key,
-                extractedValue: stringValue,
-                targetLanguage: baseLanguage,
-                targetVersion: availableVersion,
-                confirmed: false,
-              });
-            }
-            // Si la valeur existe déjà, on ne crée pas de mapping
-            break; // Une seule correspondance par champ
+            mappings.push({
+              fieldId: field.id,
+              extractedKey: key,
+              extractedValue: value,
+              targetLanguage: baseLanguage,
+              targetVersion: availableVersion,
+              confirmed: false,
+            });
+            mappedKeys.add(key);
           }
         }
+      });
+    });
+    
+    // Ajouter TOUTES les données non mappées avec fieldId vide pour que l'utilisateur puisse les positionner
+    allExtractedData.forEach(({ key, value }) => {
+      if (!mappedKeys.has(key) && value && value.trim()) {
+        mappings.push({
+          fieldId: '', // Vide pour indiquer qu'il faut que l'utilisateur choisisse
+          extractedKey: key,
+          extractedValue: value,
+          targetLanguage: baseLanguage,
+          targetVersion: 1,
+          confirmed: false,
+        });
       }
     });
 
@@ -594,9 +654,15 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
 
               <div className="mappings-list">
                 {mappings.length === 0 ? (
-                  <p className="no-mappings">Aucune correspondance automatique trouvée. Vous pouvez ajouter manuellement des mappings.</p>
+                  <p className="no-mappings">Aucune donnée extraite. Veuillez réessayer l'analyse.</p>
                 ) : (
-                  <div className="mappings-table-container">
+                  <>
+                    {mappings.filter(m => !m.fieldId).length > 0 && (
+                      <div className="unmapped-warning">
+                        <strong>{mappings.filter(m => !m.fieldId).length}</strong> donnée(s) non mappée(s) - Veuillez sélectionner un champ pour chacune
+                      </div>
+                    )}
+                    <div className="mappings-table-container">
                     <table className="mappings-table">
                       <thead>
                         <tr>
@@ -610,7 +676,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                       </thead>
                       <tbody>
                         {mappings.map((mapping, index) => (
-                          <tr key={index} className={`mapping-row ${mapping.confirmed ? 'confirmed' : ''}`}>
+                          <tr key={index} className={`mapping-row ${mapping.confirmed ? 'confirmed' : ''} ${!mapping.fieldId ? 'unmapped-row' : ''}`}>
                             <td className="mapping-source-cell">
                               <strong>{mapping.extractedKey}</strong>
                             </td>
@@ -626,9 +692,9 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                                 value={mapping.fieldId}
                                 onChange={(e) => handleMappingChange(index, { fieldId: e.target.value })}
                                 disabled={mapping.confirmed}
-                                className="field-select"
+                                className={`field-select ${!mapping.fieldId ? 'unmapped-field' : ''}`}
                               >
-                                <option value="">-- Sélectionner --</option>
+                                <option value="">-- Sélectionner un champ --</option>
                                 {userFields.map(field => (
                                   <option key={field.id} value={field.id}>
                                     {field.name} ({field.tag})
@@ -692,6 +758,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                       </tbody>
                     </table>
                   </div>
+                  </>
                 )}
               </div>
 

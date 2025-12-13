@@ -73,15 +73,18 @@ export default async function handler(
     }
 
     // Préparer le prompt pour l'analyse du CV avec mapping vers la structure JustOne
-    const prompt = `Tu es un expert en extraction de données de CV. Analyse ce CV et extrais TOUTES les informations de manière structurée et précise.
+    const prompt = `Tu es un expert en extraction de données de CV. Analyse ce CV phrase par phrase, mot par mot, et extrais TOUTES les informations de manière structurée et précise.
 
 IMPORTANT : 
-- Extrais TOUTES les informations présentes dans le CV, même si elles semblent incomplètes
-- Utilise les noms de champs EXACTS indiqués ci-dessous
+- Analyse CHAQUE phrase, CHAQUE donnée du CV
+- Extrais TOUTES les informations présentes dans le CV, même si elles semblent incomplètes ou ne correspondent pas à un champ standard
+- Pour chaque donnée extraite, cherche dans la structure des champs utilisateur fournie ci-dessous${fieldsContext ? ' (voir STRUCTURE DES CHAMPS UTILISATEUR)' : ''} si elle peut correspondre à un champ
+- Si une donnée ne correspond à aucun champ, extrais-la quand même dans un champ "other" ou avec un nom descriptif
+- Utilise les noms de champs EXACTS indiqués ci-dessous quand c'est possible
 - Pour les dates, utilise le format YYYY-MM-DD si possible, sinon garde le format original
 - Pour les tableaux (expériences, formations), extrais TOUS les éléments présents, même s'il y en a plus de 10
 - Ne laisse AUCUN champ vide si l'information est présente dans le CV
-- MAPPE les données extraites vers la structure des champs utilisateur fournie ci-dessous${fieldsContext ? ' (voir STRUCTURE DES CHAMPS UTILISATEUR)' : ''}
+- Extrais même les informations qui semblent secondaires ou optionnelles
 
 Retourne un JSON avec les champs suivants (utilise les noms EXACTS) :
 
@@ -145,6 +148,11 @@ Présentations (si présentes) :
 
 Expériences associatives (si présentes) :
 - associativeExperiences: tableau d'objets avec {duration, description}
+
+Autres informations (si présentes et non couvertes ci-dessus) :
+- other: objet avec des clés descriptives pour toutes les autres informations trouvées dans le CV
+  Exemple: { "permis": "B", "siteWeb": "https://...", "linkedin": "...", "autresInformations": "..." }
+  Extrais TOUTES les autres données qui ne correspondent pas aux champs ci-dessus
 
 Contenu du CV:
 ${extractedText.substring(0, 50000)}${fieldsContext}

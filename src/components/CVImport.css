@@ -272,6 +272,28 @@
   font-style: italic;
 }
 
+.unmapped-warning {
+  padding: 12px 16px;
+  background: #fef3c7;
+  border: 2px solid #f59e0b;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  color: #92400e;
+  font-size: 14px;
+}
+
+.unmapped-warning strong {
+  color: #b45309;
+}
+
+.mapping-row.unmapped-row {
+  background: #fef3c7;
+}
+
+.mapping-row.unmapped-row:hover {
+  background: #fde68a;
+}
+
 .mappings-summary {
   display: flex;
   justify-content: space-between;
@@ -491,6 +513,16 @@
   background: #f3f4f6;
   color: #6b7280;
   cursor: not-allowed;
+}
+
+.field-select.unmapped-field {
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.field-select.unmapped-field:focus {
+  border-color: #f59e0b;
+  background: #fef3c7;
 }
 
 .mapping-lang-cell {

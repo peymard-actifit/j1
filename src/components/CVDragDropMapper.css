@@ -248,8 +248,9 @@
 
 .field-versions {
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
+  flex-wrap: wrap;
 }
 
 .version-drop-zone {
