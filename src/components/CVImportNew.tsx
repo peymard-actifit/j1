@@ -187,7 +187,7 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     }
   };
 
-  const handleTextSelection = (e?: React.MouseEvent | React.SyntheticEvent) => {
+  const handleTextSelection = () => {
     // Attendre un peu pour que la sélection soit complète
     setTimeout(() => {
       const selection = window.getSelection();
