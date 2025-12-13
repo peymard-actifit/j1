@@ -845,7 +845,25 @@ export const FieldEditor = ({
                     const value = version === 1 ? version1Value : version === 2 ? version2Value : version3Value;
                     return (
                       <div key={version} className="language-version-input-inline">
-                        <label className="version-label">Version {version}</label>
+                        <div className="version-label-with-buttons">
+                          <label className="version-label">Version {version}</label>
+                          <div className="version-buttons">
+                            <button
+                              className="translate-version-button"
+                              onClick={() => translateVersion(version as 1 | 2 | 3)}
+                              title="Traduire cette version dans toutes les langues"
+                            >
+                              🌐
+                            </button>
+                            <button
+                              className="clear-version-button"
+                              onClick={() => clearVersion(version as 1 | 2 | 3)}
+                              title="Effacer cette version et toutes ses traductions dans toutes les langues"
+                            >
+                              ✕
+                            </button>
+                          </div>
+                        </div>
                         <div 
                           className="version-input-wrapper"
                           onDragOver={onDragOver}
@@ -863,22 +881,6 @@ export const FieldEditor = ({
                             rows={2}
                             placeholder={`Version ${version}`}
                           />
-                          <div className="version-buttons">
-                            <button
-                              className="translate-version-button"
-                              onClick={() => translateVersion(version as 1 | 2 | 3)}
-                              title="Traduire cette version dans toutes les langues"
-                            >
-                              🌐
-                            </button>
-                            <button
-                              className="clear-version-button"
-                              onClick={() => clearVersion(version as 1 | 2 | 3)}
-                              title="Effacer cette version et toutes ses traductions dans toutes les langues"
-                            >
-                              ✕
-                            </button>
-                          </div>
                         </div>
                       </div>
                     );
@@ -918,7 +920,24 @@ export const FieldEditor = ({
                     
                     return (
                       <div key={version} className="language-version-input-inline">
-                        <label className="version-label">Version {version}</label>
+                        <div className="version-label-with-buttons">
+                          <label className="version-label">Version {version}</label>
+                          {isManuallyModified && (
+                            <button
+                              className="reset-translation-button"
+                              onClick={async () => {
+                                // Réinitialiser à la traduction automatique
+                                if (autoTranslation) {
+                                  const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                  await onSave(updatedField);
+                                }
+                              }}
+                              title="Réinitialiser à la traduction automatique"
+                            >
+                              ↻
+                            </button>
+                          )}
+                        </div>
                         <div 
                           className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}
                           onDragOver={onDragOver}

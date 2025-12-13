@@ -4,6 +4,7 @@ import { storage } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { analyzeCVFile } from '../utils/ai';
 import { FieldEditor } from './DataEditor';
+import { addTranslationToField } from '../utils/translation';
 import './CVImportNew.css';
 
 interface CVImportNewProps {
@@ -276,16 +277,29 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                 />
               ) : fileContent ? (
                 <div className="text-content">
-                  {fileContent.split('\n').map((line, idx) => (
-                    <div
-                      key={idx}
-                      className="text-line"
-                      draggable={!!selectedText && line.includes(selectedText)}
-                      onDragStart={(e) => handleDragStart(e, selectedText || line)}
-                    >
-                      {line}
-                    </div>
-                  ))}
+                  {fileContent.split('\n').map((line, idx) => {
+                    const isSelected = selectedText ? line.includes(selectedText) : false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`text-line ${isSelected ? 'selected-text' : ''}`}
+                        draggable={isSelected && !!selectedText}
+                        onDragStart={(e) => {
+                          if (selectedText) {
+                            handleDragStart(e, selectedText);
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          if (isSelected && selectedText) {
+                            // Permettre de recliquer pour glisser
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        {line}
+                      </div>
+                    );
+                  })}
                 </div>
               ) : (
                 <div className="no-cv-message">

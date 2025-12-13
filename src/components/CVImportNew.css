@@ -163,10 +163,21 @@
   padding: 0.25rem 0;
   cursor: text;
   transition: background 0.2s;
+  user-select: text;
 }
 
 .text-line:hover {
   background: #f0f0f0;
+}
+
+.text-line.selected-text {
+  background: #e3f2fd;
+  cursor: grab;
+}
+
+.text-line.selected-text:hover {
+  background: #bbdefb;
+  cursor: grabbing;
 }
 
 .text-line::selection {

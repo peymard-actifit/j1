@@ -386,11 +386,24 @@
   min-width: 0;
 }
 
+.version-label-with-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
 .version-label {
   font-size: 0.75rem;
   font-weight: 600;
   color: #555;
-  margin-bottom: 0.25rem;
+  margin: 0;
+}
+
+.version-buttons {
+  display: flex;
+  gap: 0.25rem;
+  align-items: center;
 }
 
 .version-input textarea {
