@@ -50,24 +50,50 @@ export const TemplateEditor = ({
   const readFileContent = async (fileToRead: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = (e) => {
+      reader.onload = async (e) => {
         const result = e.target?.result;
         if (typeof result === 'string') {
           resolve(result);
         } else if (result instanceof ArrayBuffer) {
-          // Pour les fichiers binaires, on retourne une représentation textuelle
-          resolve('Fichier binaire chargé - Utilisez les outils d\'édition ci-dessous');
+          try {
+            // Extraire le contenu textuel selon le type de fichier
+            if (type === 'word') {
+              // Utiliser mammoth pour extraire le texte des fichiers Word
+              const mammoth = await import('mammoth');
+              const extractResult = await mammoth.extractRawText({ arrayBuffer: result });
+              resolve(extractResult.value || 'Document Word vide');
+            } else if (type === 'excel') {
+              const XLSX = await import('xlsx');
+              const workbook = XLSX.read(result, { type: 'array' });
+              const lines: string[] = [];
+              workbook.SheetNames.forEach(sheetName => {
+                const worksheet = workbook.Sheets[sheetName];
+                const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                data.forEach((row: any) => {
+                  if (Array.isArray(row)) {
+                    lines.push(row.join('\t'));
+                  }
+                });
+              });
+              resolve(lines.join('\n') || 'Fichier Excel vide');
+            } else if (type === 'powerpoint') {
+              // Pour PowerPoint, on utilise une approche simplifiée
+              // Note: pptxgenjs ne peut pas lire les fichiers, seulement les créer
+              // On va utiliser une bibliothèque de lecture si disponible, sinon on affiche un message
+              resolve('Fichier PowerPoint chargé - Le contenu sera recréé lors de la sauvegarde\nUtilisez les tags {tag,version} pour référencer les champs.');
+            } else {
+              resolve('Fichier binaire chargé - Utilisez les outils d\'édition ci-dessous');
+            }
+          } catch (err: any) {
+            reject(new Error(`Erreur lors de l'extraction du contenu: ${err.message}`));
+          }
         } else {
           reject(new Error('Format de fichier non supporté'));
         }
       };
       reader.onerror = reject;
       
-      if (type === 'excel') {
-        reader.readAsArrayBuffer(fileToRead);
-      } else if (type === 'word') {
-        reader.readAsArrayBuffer(fileToRead);
-      } else if (type === 'powerpoint') {
+      if (type === 'excel' || type === 'word' || type === 'powerpoint') {
         reader.readAsArrayBuffer(fileToRead);
       } else {
         reader.readAsText(fileToRead);
