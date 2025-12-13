@@ -30,6 +30,7 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   const [showFieldSelectionModal, setShowFieldSelectionModal] = useState(false);
   const cvDisplayRef = useRef<HTMLDivElement>(null);
   const selectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const selectionIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const [showAddField, setShowAddField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldTag, setNewFieldTag] = useState('');
@@ -278,6 +279,44 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
 
   // Écouteur global pour détecter les changements de sélection
   useEffect(() => {
+    const checkSelection = () => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+        const text = selection.toString().trim();
+        // Vérifier que la sélection est dans la zone du CV
+        const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        let isInCVArea = false;
+        
+        if (range) {
+          const container = range.commonAncestorContainer;
+          const cvDisplay = cvDisplayRef.current;
+          if (cvDisplay) {
+            // Vérifier si la sélection est dans la zone d'affichage du CV
+            const node = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Node;
+            if (node && cvDisplay.contains(node)) {
+              isInCVArea = true;
+            }
+          }
+        } else {
+          // Si pas de range, supposer que c'est dans le PDF (embed peut ne pas exposer de range)
+          // Vérifier si le focus est dans la zone du CV
+          const activeElement = document.activeElement;
+          const cvDisplay = cvDisplayRef.current;
+          if (cvDisplay && (activeElement?.tagName === 'EMBED' || cvDisplay.contains(activeElement))) {
+            isInCVArea = true;
+          }
+        }
+        
+        if (isInCVArea && text.length > 0 && text !== selectedText) {
+          setSelectedText(text);
+          setShowFieldSelectionModal(true);
+        }
+      } else if (selectedText && (!selection || !selection.toString().trim())) {
+        // Si la sélection a été effacée, ne pas fermer le pop-up immédiatement
+        // (l'utilisateur peut vouloir glisser le texte déjà sélectionné)
+      }
+    };
+
     const handleSelectionChange = () => {
       // Délai pour laisser le temps à la sélection de se compléter
       if (selectionTimeoutRef.current) {
@@ -285,34 +324,8 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
       }
       
       selectionTimeoutRef.current = setTimeout(() => {
-        const selection = window.getSelection();
-        if (selection && selection.toString().trim()) {
-          const text = selection.toString().trim();
-          // Vérifier que la sélection est dans la zone du CV
-          const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
-          let isInCVArea = false;
-          
-          if (range) {
-            const container = range.commonAncestorContainer;
-            const cvDisplay = cvDisplayRef.current;
-            if (cvDisplay) {
-              // Vérifier si la sélection est dans la zone d'affichage du CV
-              const node = container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Node;
-              if (node && cvDisplay.contains(node)) {
-                isInCVArea = true;
-              }
-            }
-          } else {
-            // Si pas de range, supposer que c'est dans le PDF (embed peut ne pas exposer de range)
-            isInCVArea = true;
-          }
-          
-          if (isInCVArea && text.length > 0) {
-            setSelectedText(text);
-            setShowFieldSelectionModal(true);
-          }
-        }
-      }, 150);
+        checkSelection();
+      }, 100);
     };
 
     // Écouter les changements de sélection
@@ -320,14 +333,22 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     // Écouter aussi mouseup pour capturer les sélections dans les embeds
     document.addEventListener('mouseup', handleSelectionChange);
     
+    // Vérifier périodiquement la sélection (pour les PDF embeds qui ne déclenchent pas toujours les événements)
+    selectionIntervalRef.current = setInterval(() => {
+      checkSelection();
+    }, 300); // Vérifier toutes les 300ms
+    
     return () => {
       document.removeEventListener('selectionchange', handleSelectionChange);
       document.removeEventListener('mouseup', handleSelectionChange);
       if (selectionTimeoutRef.current) {
         clearTimeout(selectionTimeoutRef.current);
       }
+      if (selectionIntervalRef.current) {
+        clearInterval(selectionIntervalRef.current);
+      }
     };
-  }, []);
+  }, [selectedText]);
 
   const handleInsertIntoField = async (field: UserDataField) => {
     if (!selectedText || !user || !setUser) return;

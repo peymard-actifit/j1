@@ -25,6 +25,8 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
   const [filterText, setFilterText] = useState('');
   const [fieldsListWidth, setFieldsListWidth] = useState(300);
   const [isResizing, setIsResizing] = useState(false);
+  const [importPanelWidth, setImportPanelWidth] = useState(50); // Pourcentage de la largeur
+  const [isResizingImport, setIsResizingImport] = useState(false);
   // Langue de travail (peut être différente de la baseLanguage de chaque champ)
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
 
@@ -298,6 +300,12 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
     e.preventDefault();
   };
 
+  const handleImportResizeStart = (e: React.MouseEvent) => {
+    setIsResizingImport(true);
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   useEffect(() => {
     const handleResize = (e: MouseEvent) => {
       if (!isResizing) return;
@@ -320,6 +328,36 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
       };
     }
   }, [isResizing]);
+
+  useEffect(() => {
+    const handleImportResize = (e: MouseEvent) => {
+      if (!isResizingImport || !showImport) return;
+      const container = document.querySelector('.data-editor-container');
+      if (!container) return;
+      
+      const containerRect = container.getBoundingClientRect();
+      const relativeX = e.clientX - containerRect.left;
+      const percentage = (relativeX / containerRect.width) * 100;
+      
+      // Limiter entre 20% et 70% de la largeur
+      if (percentage >= 20 && percentage <= 70) {
+        setImportPanelWidth(percentage);
+      }
+    };
+
+    const handleImportResizeEnd = () => {
+      setIsResizingImport(false);
+    };
+
+    if (isResizingImport) {
+      document.addEventListener('mousemove', handleImportResize);
+      document.addEventListener('mouseup', handleImportResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleImportResize);
+        document.removeEventListener('mouseup', handleImportResizeEnd);
+      };
+    }
+  }, [isResizingImport, showImport]);
 
   const handleDeleteField = async (fieldId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce champ ?')) {
@@ -429,21 +467,31 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
   return (
     <div className={`data-editor-container ${showImport ? 'with-import' : ''}`}>
       {showImport && (
-        <div className="data-editor-import-panel">
-          <div className="data-editor-import-header">
-            <h3>Importer un CV</h3>
-            <button className="close-import-button" onClick={onImportClose} title="Fermer">
-              ✕
-            </button>
+        <>
+          <div 
+            className="data-editor-import-panel"
+            style={{ width: `${importPanelWidth}%` }}
+          >
+            <div className="data-editor-import-header">
+              <h3>Importer un CV</h3>
+              <button className="close-import-button" onClick={onImportClose} title="Fermer">
+                ✕
+              </button>
+            </div>
+            <div className="data-editor-import-content">
+              <CVImportNew 
+                onCancel={onImportClose || (() => {})}
+                onComplete={onImportClose || (() => {})}
+                embeddedMode={true}
+              />
+            </div>
           </div>
-          <div className="data-editor-import-content">
-            <CVImportNew 
-              onCancel={onImportClose || (() => {})}
-              onComplete={onImportClose || (() => {})}
-              embeddedMode={true}
-            />
-          </div>
-        </div>
+          <div
+            className="data-editor-import-resizer"
+            onMouseDown={handleImportResizeStart}
+            style={{ cursor: 'col-resize' }}
+          />
+        </>
       )}
       <div className="data-editor">
         <div className="data-editor-header">
