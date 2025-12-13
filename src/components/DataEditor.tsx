@@ -921,7 +921,7 @@ export const FieldEditor = ({
                         <div 
                           className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}
                           onDragOver={onDragOver}
-                          onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, targetLang, e) : undefined}
+                          onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, language, e) : undefined}
                         >
                           <textarea
                             value={currentValue}
@@ -1009,7 +1009,11 @@ export const FieldEditor = ({
                       
                       return (
                         <div key={version} className="language-version-input-inline">
-                          <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                          <div 
+                            className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}
+                            onDragOver={onDragOver}
+                            onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, language, e) : undefined}
+                          >
                             <textarea
                               value={currentValue}
                               onChange={async (e) => {
