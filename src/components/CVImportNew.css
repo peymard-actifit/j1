@@ -197,6 +197,24 @@
   padding: 0.75rem;
   border-bottom: 1px solid #e0e0e0;
   background: white;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.clear-selection-button {
+  padding: 0.3rem 0.6rem;
+  background: #ff9800;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+.clear-selection-button:hover {
+  background: #f57c00;
 }
 
 .add-field-button-import {
