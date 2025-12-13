@@ -202,7 +202,40 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   };
 
   const handleFieldClick = (field: UserDataField, e: React.MouseEvent) => {
-    if (e.ctrlKey || e.metaKey) {
+    if (e.shiftKey) {
+      // Sélection par plage avec Shift
+      if (selectedFields.size === 0) {
+        // Si aucune sélection, commencer par ce champ
+        setSelectedField(field);
+        setSelectedFields(new Set([field.id]));
+      } else {
+        // Trouver les indices du premier champ sélectionné et du champ cliqué
+        const selectedIndices = Array.from(selectedFields)
+          .map(id => userFields.findIndex(f => f.id === id))
+          .filter(idx => idx !== -1);
+        
+        const clickedIndex = userFields.findIndex(f => f.id === field.id);
+        
+        if (selectedIndices.length > 0 && clickedIndex !== -1) {
+          const firstSelectedIndex = Math.min(...selectedIndices);
+          const lastSelectedIndex = Math.max(...selectedIndices);
+          
+          // Déterminer la plage : du premier sélectionné au champ cliqué
+          const startIndex = Math.min(firstSelectedIndex, clickedIndex);
+          const endIndex = Math.max(lastSelectedIndex, clickedIndex);
+          
+          // Sélectionner tous les champs dans la plage
+          const rangeFields = userFields.slice(startIndex, endIndex + 1);
+          const newSelected = new Set(rangeFields.map(f => f.id));
+          setSelectedFields(newSelected);
+          
+          // Mettre à jour le champ sélectionné principal
+          if (newSelected.size > 0) {
+            setSelectedField(field);
+          }
+        }
+      }
+    } else if (e.ctrlKey || e.metaKey) {
       // Sélection multiple avec Ctrl/Cmd
       const newSelected = new Set(selectedFields);
       if (newSelected.has(field.id)) {
@@ -215,6 +248,8 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
         setSelectedField(field);
       } else if (newSelected.size === 0) {
         setSelectedField(null);
+      } else {
+        setSelectedField(field);
       }
     } else {
       // Sélection simple
