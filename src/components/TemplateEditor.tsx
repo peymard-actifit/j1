@@ -143,28 +143,6 @@ export const TemplateEditor = ({
     }
   };
 
-  const handleSave = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Si on est en mode Office Online, on ne peut pas récupérer directement le contenu modifié
-      // Il faudrait utiliser l'API Microsoft Graph pour récupérer le fichier modifié
-      // Pour l'instant, on sauvegarde le contenu texte
-      if (editMode === 'office') {
-        setError('Note: En mode Office Online, vous devez télécharger le fichier depuis Office Online, puis le recharger ici pour sauvegarder.');
-        // On sauvegarde quand même le contenu texte actuel
-      }
-      
-      const blob = await generateFile(content, fileName, type);
-      const savedFile = new File([blob], fileName, { type: getMimeType(type) });
-      onSave(savedFile);
-    } catch (err: any) {
-      setError(`Erreur lors de la sauvegarde: ${err.message}`);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const generateFile = async (contentToSave: string, _name: string, fileType: string): Promise<Blob> => {
     // Ajouter le prompt comme commentaire si disponible
     const promptComment = cvPrompt ? `<!-- PROMPT CV (non imprimable): ${cvPrompt} -->` : '';
@@ -187,7 +165,7 @@ export const TemplateEditor = ({
       return new Blob([excelBuffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
     } else if (fileType === 'word') {
       // Utiliser docx pour créer un vrai fichier Word
-      const { Document, Packer, Paragraph, TextRun } = await import('docx');
+      const { Document, Packer, Paragraph, TextRun, CommentRangeStart, CommentRangeEnd, CommentReference } = await import('docx');
       const doc = new Document({
         sections: [{
           properties: {},
@@ -195,11 +173,14 @@ export const TemplateEditor = ({
             ...(cvPrompt ? [
               new Paragraph({
                 children: [
+                  new CommentRangeStart(0),
                   new TextRun({
-                    text: 'PROMPT CV (non imprimable - commentaire): ' + cvPrompt,
+                    text: 'PROMPT CV (non imprimable)',
                     color: 'CCCCCC', // Gris clair pour indiquer que c'est un commentaire
                     size: 8,
                   }),
+                  new CommentRangeEnd(0),
+                  new CommentReference(0),
                 ],
               }),
             ] : []),
@@ -214,6 +195,24 @@ export const TemplateEditor = ({
             ),
           ],
         }],
+        comments: cvPrompt ? {
+          children: [
+            {
+              id: 0,
+              author: 'CV Generator',
+              date: new Date().toISOString(),
+              children: [
+                new Paragraph({
+                  children: [
+                    new TextRun({
+                      text: cvPrompt,
+                    }),
+                  ],
+                }),
+              ],
+            },
+          ],
+        } : undefined,
       });
       const buffer = await Packer.toBlob(doc);
       return buffer;
@@ -239,18 +238,6 @@ export const TemplateEditor = ({
     return new Blob([contentToSave + (promptComment ? '\n' + promptComment : '')], { type: 'text/plain' });
   };
 
-  const getMimeType = (fileType: string): string => {
-    switch (fileType) {
-      case 'excel':
-        return 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
-      case 'word':
-        return 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-      case 'powerpoint':
-        return 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
-      default:
-        return 'application/octet-stream';
-    }
-  };
 
   const insertTag = (tag: string, version: number | string) => {
     const tagText = `{${tag},${version}}`;
@@ -261,7 +248,7 @@ export const TemplateEditor = ({
     <div className="template-editor-embedded">
       <div className="template-editor-header-embedded">
         <div className="header-left-section">
-          <div className="toolbar-section">
+          <div className="toolbar-section-inline">
             <label>Nom du fichier:</label>
             <input
               type="text"
@@ -271,7 +258,7 @@ export const TemplateEditor = ({
               placeholder="nom_du_fichier"
             />
           </div>
-          <div className="toolbar-section">
+          <div className="toolbar-section-inline">
             <label>Insérer un tag:</label>
             <select
               className="tag-select"
@@ -332,9 +319,6 @@ export const TemplateEditor = ({
             {editMode === 'office' && '🔧 OnlyOffice'}
             {editMode === 'onlyoffice' && '✏️ WYSIWYG'}
             {editMode === 'wysiwyg' && '📄 Mode texte'}
-          </button>
-          <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName} title="Sauvegarder sous">
-            💾 Sauvegarder sous
           </button>
           <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
         </div>

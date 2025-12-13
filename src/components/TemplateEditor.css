@@ -69,6 +69,14 @@
   gap: 0.5rem;
 }
 
+.toolbar-section-inline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex: 1;
+  min-width: 0;
+}
+
 .toolbar-section label {
   font-weight: 600;
   color: #333;
