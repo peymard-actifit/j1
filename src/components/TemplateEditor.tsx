@@ -229,84 +229,61 @@ export const TemplateEditor = ({
   return (
     <div className="template-editor-embedded">
       <div className="template-editor-header-embedded">
-        <h4>
-          {type === 'excel' && '📊 Éditeur Excel'}
-          {type === 'word' && '📝 Éditeur Word'}
-          {type === 'powerpoint' && '📊 Éditeur PowerPoint'}
-        </h4>
-        <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
+        <div className="header-left-section">
+          <div className="toolbar-section">
+            <label>Nom du fichier:</label>
+            <input
+              type="text"
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              className="file-name-input"
+              placeholder="nom_du_fichier"
+            />
+          </div>
+          <div className="toolbar-section">
+            <label>Insérer un tag:</label>
+            <select
+              className="tag-select"
+              onChange={(e) => {
+                const [tag, version] = e.target.value.split(',');
+                if (tag && version) {
+                  insertTag(tag, parseInt(version, 10));
+                  e.target.value = '';
+                }
+              }}
+            >
+              <option value="">Sélectionner un champ...</option>
+              {fields.map(field => (
+                [1, 2, 3].map(version => (
+                  <option key={`${field.id}-${version}`} value={`${field.tag},${version}`}>
+                    {field.name} - Version {version} ({field.tag},{version})
+                  </option>
+                ))
+              )).flat()}
+            </select>
+          </div>
+        </div>
+        <div className="header-right-section">
+          <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName} title="Sauvegarder sous">
+            💾 Sauvegarder sous
+          </button>
+          <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
+        </div>
       </div>
       <div className="template-editor-content-embedded">
-        <div className="editor-toolbar">
-            <div className="toolbar-section">
-              <label>Nom du fichier:</label>
-              <input
-                type="text"
-                value={fileName}
-                onChange={(e) => setFileName(e.target.value)}
-                className="file-name-input"
-                placeholder="nom_du_fichier"
-              />
-            </div>
-            <div className="toolbar-section">
-              <label>Insérer un tag:</label>
-              <select
-                className="tag-select"
-                onChange={(e) => {
-                  const [tag, version] = e.target.value.split(',');
-                  if (tag && version) {
-                    insertTag(tag, parseInt(version, 10));
-                    e.target.value = '';
-                  }
-                }}
-              >
-                <option value="">Sélectionner un champ...</option>
-                {fields.map(field => (
-                  [1, 2, 3].map(version => (
-                    <option key={`${field.id}-${version}`} value={`${field.tag},${version}`}>
-                      {field.name} - Version {version} ({field.tag},{version})
-                    </option>
-                  ))
-                )).flat()}
-              </select>
-            </div>
-        </div>
-
         {error && <div className="editor-error">{error}</div>}
 
         {isLoading ? (
           <div className="editor-loading">Chargement...</div>
         ) : (
-          <div className="editor-main">
-              <div className="editor-info">
-                <p><strong>Instructions:</strong></p>
-                <ul>
-                  <li>Utilisez le format <code>{'{tag,version}'}</code> pour référencer les champs</li>
-                  <li>Exemples: <code>{'{nom,1}'}</code>, <code>{'{prenom,1}'}</code>, <code>{'{email,1}'}</code></li>
-                  <li>Vous pouvez insérer des tags via le menu déroulant ci-dessus</li>
-                  <li>Pour Excel: chaque ligne correspond à une ligne du tableur</li>
-                  <li>Pour Word: le texte sera formaté comme un document</li>
-                  <li>Pour PowerPoint: le contenu sera ajouté à la première diapositive</li>
-                </ul>
-              </div>
-              <textarea
-                className="editor-textarea"
-                value={content}
-                onChange={(e) => setContent(e.target.value)}
-                placeholder="Contenu du template..."
-                rows={15}
-              />
-            </div>
-          )}
-
-        <div className="editor-actions">
-          <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName}>
-            💾 Sauvegarder
-          </button>
-          <button className="cancel-button" onClick={onClose}>
-            Annuler
-          </button>
-        </div>
+          <textarea
+            className="editor-textarea"
+            value={content}
+            onChange={(e) => setContent(e.target.value)}
+            placeholder="Contenu du template..."
+            rows={15}
+          />
+        )}
       </div>
     </div>
   );
