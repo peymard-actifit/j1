@@ -129,7 +129,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     onProgress?.('Début du parsing des données...');
 
     // Mapper les champs simples
-    Object.entries(extracted).forEach(([key, value], index) => {
+    Object.entries(extracted).forEach(([key, value]) => {
       if (!value || typeof value === 'object' || Array.isArray(value)) return;
       const valueStr = String(value).trim();
       if (!valueStr) return;
@@ -227,7 +227,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
       id: `field-${Date.now()}`,
       name: newFieldName.trim(),
       tag: newFieldTag.trim(),
-      type: 'Text',
+      type: 'text',
       baseLanguage: workingLanguage,
       aiVersions: [],
       languageVersions: [],
