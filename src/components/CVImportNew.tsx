@@ -17,14 +17,13 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
   const [fileType, setFileType] = useState<string>('');
-  const [analyzing, setAnalyzing] = useState(false);
-  const [analysisProgress, setAnalysisProgress] = useState('');
+  const [pdfTextContent, setPdfTextContent] = useState<string>('');
+  const [extractingPdfText, setExtractingPdfText] = useState(false);
   const [userFields, setUserFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
   const [selectedText, setSelectedText] = useState<string>('');
   const cvDisplayRef = useRef<HTMLDivElement>(null);
-  const [parsingSteps, setParsingSteps] = useState<Array<{step: string; text?: string; field?: string; version?: number}>>([]);
   const [showAddField, setShowAddField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldTag, setNewFieldTag] = useState('');
@@ -52,6 +51,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     if (selectedFile) {
       setFile(selectedFile);
       setFileType(selectedFile.type);
+      setPdfTextContent('');
       
       // Lire le contenu du fichier pour l'affichage
       const reader = new FileReader();
@@ -59,11 +59,26 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
         const content = event.target?.result as string;
         setFileContent(content);
         
-        // Si c'est un PDF, on peut utiliser un iframe ou un objet pour l'affichage
+        // Si c'est un PDF, extraire le texte pour permettre la sélection
         if (selectedFile.type === 'application/pdf') {
-          setFileContent(content); // base64 pour PDF
+          setExtractingPdfText(true);
+          try {
+            // Utiliser l'API documint pour extraire le texte du PDF
+            const result = await api.extractPdfText(content);
+            if (result.success && result.text) {
+              setPdfTextContent(result.text);
+            } else {
+              // Fallback : afficher un message
+              setPdfTextContent('Impossible d\'extraire le texte du PDF. Veuillez utiliser un autre format.');
+            }
+          } catch (error) {
+            console.error('Error extracting PDF text:', error);
+            setPdfTextContent('Erreur lors de l\'extraction du texte du PDF.');
+          } finally {
+            setExtractingPdfText(false);
+          }
         } else {
-          // Pour les autres formats, on affiche le texte
+          // Pour les autres formats, on affiche le texte directement
           setFileContent(content);
         }
       };
@@ -409,42 +424,11 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                   </label>
                 </div>
               )}
-              {file && !analyzing && (
-                <button onClick={handleImport} className="import-button">
-                  Importer le CV
-                </button>
-              )}
             </div>
 
-            {analysisProgress && (
+            {extractingPdfText && (
               <div className="analysis-progress">
-                <p>{analysisProgress}</p>
-              </div>
-            )}
-
-            {parsingSteps.length > 0 && (
-              <div className="parsing-steps">
-                <h4>Progression du parsing :</h4>
-                <div className="parsing-steps-list">
-                  {parsingSteps.map((step, idx) => (
-                    <div key={idx} className="parsing-step-item">
-                      <div className="parsing-step-header">
-                        <span className="parsing-step-number">{idx + 1}</span>
-                        <span className="parsing-step-text">{step.step}</span>
-                      </div>
-                      {step.text && (
-                        <div className="parsing-step-detail">
-                          <strong>Texte :</strong> "{step.text}{step.text.length > 50 ? '...' : ''}"
-                        </div>
-                      )}
-                      {step.field && (
-                        <div className="parsing-step-detail">
-                          <strong>→ Champ :</strong> {step.field} <strong>Version :</strong> {step.version}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <p>Extraction du texte du PDF...</p>
               </div>
             )}
 
@@ -454,12 +438,32 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
               onMouseUp={handleTextSelection}
               onSelect={handleTextSelection}
             >
-              {fileType === 'application/pdf' && fileContent ? (
-                <iframe
-                  src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=0`}
-                  className="pdf-viewer"
-                  title="CV PDF"
-                />
+              {fileType === 'application/pdf' && pdfTextContent ? (
+                <div className="text-content">
+                  {pdfTextContent.split('\n').map((line, idx) => {
+                    const isSelected = selectedText ? line.includes(selectedText) : false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`text-line ${isSelected ? 'selected-text' : ''}`}
+                        draggable={isSelected && !!selectedText}
+                        onDragStart={(e) => {
+                          if (selectedText) {
+                            handleDragStart(e, selectedText);
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          if (isSelected && selectedText) {
+                            // Permettre de recliquer pour glisser
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        {line}
+                      </div>
+                    );
+                  })}
+                </div>
               ) : fileContent ? (
                 <div className="text-content">
                   {fileContent.split('\n').map((line, idx) => {
