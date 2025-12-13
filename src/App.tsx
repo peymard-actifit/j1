@@ -11,11 +11,11 @@ import './App.css';
 
 const AppContent = () => {
   const { user, setUser } = useAuth();
-  const [showWelcome, setShowWelcome] = useState(false);
   const [showDataEditor, setShowDataEditor] = useState(true); // Toujours afficher l'éditeur
   const [showImport, setShowImport] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
+  const [showWelcome, setShowWelcome] = useState(false);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -151,7 +151,7 @@ const AppContent = () => {
   return (
     <div className="app">
       <NavigationBar
-        onModuleClick={(module) => setCurrentModule(module)}
+        onModuleClick={() => {}}
         onAIClick={() => setShowAIPanel(true)}
         onImportClick={() => setShowImport(!showImport)}
       />
