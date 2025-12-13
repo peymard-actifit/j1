@@ -2,9 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
 import { UserDataField } from '../types/database';
-import { analyzeCVFile } from '../utils/ai';
 import { FieldEditor } from './DataEditor';
-import { addTranslationToField } from '../utils/translation';
 import './CVImportNew.css';
 
 interface CVImportNewProps {
