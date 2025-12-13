@@ -29,6 +29,7 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   const [selectedText, setSelectedText] = useState<string>('');
   const [showFieldSelectionModal, setShowFieldSelectionModal] = useState(false);
   const cvDisplayRef = useRef<HTMLDivElement>(null);
+  const selectionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [showAddField, setShowAddField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
   const [newFieldTag, setNewFieldTag] = useState('');
@@ -255,28 +256,57 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   };
 
   const handleTextSelection = () => {
+    // Annuler le timeout précédent s'il existe
+    if (selectionTimeoutRef.current) {
+      clearTimeout(selectionTimeoutRef.current);
+    }
+    
     // Attendre un peu pour que la sélection soit complète
-    setTimeout(() => {
+    selectionTimeoutRef.current = setTimeout(() => {
       const selection = window.getSelection();
       if (selection && selection.toString().trim()) {
         const text = selection.toString().trim();
-        setSelectedText(text);
-        // Afficher le pop-up avec les champs pertinents
-        setShowFieldSelectionModal(true);
-      } else {
-        // Si pas de sélection, vérifier si on peut obtenir le texte depuis le PDF
-        const activeElement = document.activeElement;
-        if (activeElement && activeElement.tagName === 'EMBED') {
-          const sel = window.getSelection();
-          if (sel && sel.toString().trim()) {
-            const text = sel.toString().trim();
-            setSelectedText(text);
-            setShowFieldSelectionModal(true);
-          }
+        // Vérifier que le texte n'est pas vide et qu'il vient bien de la zone PDF
+        if (text.length > 0) {
+          setSelectedText(text);
+          // Afficher le pop-up avec les champs pertinents
+          setShowFieldSelectionModal(true);
         }
       }
-    }, 50);
+    }, 100);
   };
+
+  // Écouteur global pour détecter les changements de sélection
+  useEffect(() => {
+    const handleSelectionChange = () => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+        // Vérifier que la sélection est dans la zone du PDF
+        const range = selection.rangeCount > 0 ? selection.getRangeAt(0) : null;
+        if (range) {
+          const container = range.commonAncestorContainer;
+          const pdfContainer = cvDisplayRef.current?.querySelector('.pdf-container');
+          if (pdfContainer && (pdfContainer.contains(container.nodeType === Node.TEXT_NODE ? container.parentElement : container as Node))) {
+            handleTextSelection();
+          }
+        } else {
+          // Si pas de range, essayer quand même (peut venir de l'embed)
+          handleTextSelection();
+        }
+      }
+    };
+
+    document.addEventListener('selectionchange', handleSelectionChange);
+    document.addEventListener('mouseup', handleTextSelection);
+    
+    return () => {
+      document.removeEventListener('selectionchange', handleSelectionChange);
+      document.removeEventListener('mouseup', handleTextSelection);
+      if (selectionTimeoutRef.current) {
+        clearTimeout(selectionTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const handleInsertIntoField = async (field: UserDataField) => {
     if (!selectedText || !user || !setUser) return;
@@ -724,11 +754,10 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
                       className="pdf-viewer"
                       title="CV PDF"
                     />
-                    {/* Overlay transparent pour capturer la sélection */}
+                    {/* Overlay transparent pour capturer la sélection - ne bloque pas la sélection native */}
                     <div
                       className="pdf-selection-overlay"
-                      onMouseUp={handleTextSelection}
-                      onSelect={handleTextSelection}
+                      style={{ pointerEvents: 'none' }}
                     />
                   </div>
                 ) : fileContent ? (

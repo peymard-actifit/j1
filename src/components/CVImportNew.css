@@ -326,6 +326,12 @@
   height: 100%;
   overflow: auto;
   flex: 1;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+}
+
+.pdf-container::-webkit-scrollbar {
+  display: none; /* Chrome, Safari, Opera */
 }
 
 .pdf-viewer {
