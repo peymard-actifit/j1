@@ -14,7 +14,7 @@ export default async function handler(
   }
 
   try {
-    const { fileContent, fileName, fileType } = req.body;
+    const { fileContent, fileName, fileType, userFields } = req.body;
 
     if (!fileContent) {
       return res.status(400).json({ error: 'File content is required' });
@@ -47,6 +47,31 @@ export default async function handler(
       }
     }
 
+    // Préparer la description de la structure des champs utilisateur
+    let fieldsContext = '';
+    if (userFields && Array.isArray(userFields) && userFields.length > 0) {
+      fieldsContext = `\n\nSTRUCTURE DES CHAMPS UTILISATEUR (utilise ces IDs et noms pour mapper les données) :\n`;
+      userFields.forEach((field: any) => {
+        const existingValues = [
+          ...(field.aiVersions || []).map((v: any) => `Version ${v.version}: ${v.value}`).filter((v: string) => v && v.length > 0),
+          ...(field.languageVersions || []).map((lv: any) => `${lv.language} v${lv.version}: ${lv.value}`).filter((v: string) => v && v.length > 0)
+        ].slice(0, 2); // Limiter à 2 exemples
+        
+        fieldsContext += `- ID: "${field.id}", Nom: "${field.name}", Tag: "${field.tag}", Type: "${field.type}"`;
+        if (existingValues.length > 0) {
+          fieldsContext += `, Valeurs existantes: ${existingValues.join(', ')}`;
+        }
+        fieldsContext += `\n`;
+      });
+      
+      fieldsContext += `\nRÈGLES DE MAPPING :\n`;
+      fieldsContext += `- Les champs commençant par "xp" suivis de 01-10 sont pour les expériences professionnelles (ex: xp01entreprise, xp01poste, xp01datedebut, etc.)\n`;
+      fieldsContext += `- Les champs commençant par "for" suivis de 01-10 sont pour les formations (ex: for01diplome, for01ecole, etc.)\n`;
+      fieldsContext += `- Les champs "langue01", "langue02", etc. sont pour les langues\n`;
+      fieldsContext += `- Les champs "niveaulangue01", "niveaulangue02", etc. sont pour les niveaux de langues\n`;
+      fieldsContext += `- Les autres champs correspondent aux informations personnelles et professionnelles\n`;
+    }
+
     // Préparer le prompt pour l'analyse du CV avec mapping vers la structure JustOne
     const prompt = `Tu es un expert en extraction de données de CV. Analyse ce CV et extrais TOUTES les informations de manière structurée et précise.
 
@@ -56,6 +81,7 @@ IMPORTANT :
 - Pour les dates, utilise le format YYYY-MM-DD si possible, sinon garde le format original
 - Pour les tableaux (expériences, formations), extrais TOUS les éléments présents, même s'il y en a plus de 10
 - Ne laisse AUCUN champ vide si l'information est présente dans le CV
+- MAPPE les données extraites vers la structure des champs utilisateur fournie ci-dessous${fieldsContext ? ' (voir STRUCTURE DES CHAMPS UTILISATEUR)' : ''}
 
 Retourne un JSON avec les champs suivants (utilise les noms EXACTS) :
 
@@ -121,7 +147,7 @@ Expériences associatives (si présentes) :
 - associativeExperiences: tableau d'objets avec {duration, description}
 
 Contenu du CV:
-${extractedText.substring(0, 50000)}
+${extractedText.substring(0, 50000)}${fieldsContext}
 
 Retourne UNIQUEMENT un JSON valide, sans texte supplémentaire, sans markdown, sans commentaires. Le JSON doit être directement parsable.`;
 

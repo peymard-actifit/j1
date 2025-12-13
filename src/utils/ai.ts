@@ -2,7 +2,7 @@
 
 import { api } from './api';
 
-export const analyzeCVFile = async (file: File): Promise<any> => {
+export const analyzeCVFile = async (file: File, userFields?: any[]): Promise<any> => {
   // Lire le contenu du fichier
   const fileContent = await readFileContent(file);
   
@@ -10,7 +10,8 @@ export const analyzeCVFile = async (file: File): Promise<any> => {
   const result = await api.analyzeCV(
     fileContent,
     file.name,
-    file.type
+    file.type,
+    userFields
   );
 
   if (!result.success) {

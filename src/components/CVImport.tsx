@@ -67,8 +67,8 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
     setStep('analyze');
 
     try {
-      // Analyser avec l'API IA
-      const analysis = await analyzeCVFile(file);
+      // Analyser avec l'API IA en passant la structure des champs comme contexte
+      const analysis = await analyzeCVFile(file, userFields);
       setExtractedData(analysis);
       
       // Utiliser l'IA pour faire un matching intelligent
@@ -649,7 +649,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                               </select>
                             </td>
                             <td className="mapping-version-cell">
-                              <div className="version-buttons">
+                              <div className="version-buttons-horizontal">
                                 {[1, 2, 3].map(version => (
                                   <button
                                     key={version}

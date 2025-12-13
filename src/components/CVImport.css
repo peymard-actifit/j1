@@ -519,13 +519,15 @@
 }
 
 .mapping-version-cell {
-  min-width: 120px;
+  min-width: 150px;
 }
 
-.version-buttons {
+.version-buttons,
+.version-buttons-horizontal {
   display: flex;
   gap: 4px;
   justify-content: center;
+  flex-direction: row; /* Horizontal par défaut */
 }
 
 .version-button {

@@ -122,11 +122,11 @@ export const api = {
   },
 
   // AI
-  async analyzeCV(fileContent: string, fileName: string, fileType: string) {
+  async analyzeCV(fileContent: string, fileName: string, fileType: string, userFields?: any[]) {
     const res = await fetch(`${API_BASE}/ai/analyze-cv`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fileContent, fileName, fileType }),
+      body: JSON.stringify({ fileContent, fileName, fileType, userFields }),
     });
     return res.json();
   },
