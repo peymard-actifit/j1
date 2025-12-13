@@ -23,6 +23,14 @@
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
 }
 
+.cv-import-new-embedded {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
 .cv-import-new-header {
   display: flex;
   justify-content: space-between;

@@ -6,7 +6,15 @@ import { addTranslationToField } from '../utils/translation';
 import { api } from '../utils/api';
 import './DataEditor.css';
 
-export const DataEditor = ({ onClose }: { onClose: () => void }) => {
+import { CVImportNew } from './CVImportNew';
+
+interface DataEditorProps {
+  onClose?: () => void;
+  showImport?: boolean;
+  onImportClose?: () => void;
+}
+
+export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataEditorProps) => {
   const { user, setUser } = useAuth();
   const [fields, setFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
@@ -419,7 +427,24 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   };
 
   return (
-    <div className="data-editor-overlay">
+    <div className={`data-editor-container ${showImport ? 'with-import' : ''}`}>
+      {showImport && (
+        <div className="data-editor-import-panel">
+          <div className="data-editor-import-header">
+            <h3>Importer un CV</h3>
+            <button className="close-import-button" onClick={onImportClose} title="Fermer">
+              ✕
+            </button>
+          </div>
+          <div className="data-editor-import-content">
+            <CVImportNew 
+              onCancel={onImportClose || (() => {})}
+              onComplete={onImportClose || (() => {})}
+              embeddedMode={true}
+            />
+          </div>
+        </div>
+      )}
       <div className="data-editor">
         <div className="data-editor-header">
           <h2>Édition des données CV</h2>
@@ -427,9 +452,11 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
             <button onClick={handleExport} className="export-button">
               📥 Exporter
             </button>
-            <button onClick={onClose} className="close-button">
-              ✕
-            </button>
+            {onClose && (
+              <button onClick={onClose} className="close-button">
+                ✕
+              </button>
+            )}
           </div>
         </div>
 
@@ -555,7 +582,6 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
           </div>
         </div>
       </div>
-
     </div>
   );
 };

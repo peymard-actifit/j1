@@ -8,9 +8,10 @@ import './CVImportNew.css';
 interface CVImportNewProps {
   onComplete: () => void;
   onCancel: () => void;
+  embeddedMode?: boolean;
 }
 
-export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
+export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps) => {
   const { user, setUser } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
@@ -481,14 +482,10 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     return names[code] || code.toUpperCase();
   };
 
-  return (
-    <div className="cv-import-new-overlay">
-      <div className="cv-import-new">
-        <div className="cv-import-new-header">
-          <h2>Importer un CV</h2>
-          <button onClick={onCancel} className="close-button">✕</button>
-        </div>
-
+  if (embeddedMode) {
+    // Mode intégré dans DataEditor (sans overlay)
+    return (
+      <div className="cv-import-new-embedded">
         <div className="cv-import-new-content">
           {/* Partie gauche : Affichage du CV */}
           <div className="cv-display-panel">
@@ -732,6 +729,260 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                 style={{ cursor: 'col-resize' }}
               />
 
+              {selectedField && (
+                <div className="field-editor-container">
+                  <FieldEditor
+                    field={selectedField}
+                    onSave={handleSaveField}
+                    workingLanguage={workingLanguage}
+                    onChangeWorkingLanguage={handleChangeWorkingLanguage}
+                    userBaseLanguage={user?.baseLanguage || 'fr'}
+                    onDrop={(version: 1 | 2 | 3, language: string, e: React.DragEvent) => handleDrop(selectedField, version, language, e)}
+                    onDragOver={handleDragOver}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Mode overlay (ancien comportement)
+  // Le contenu est identique au mode embedded, mais avec un overlay
+  return (
+    <div className="cv-import-new-overlay">
+      <div className="cv-import-new">
+        <div className="cv-import-new-header">
+          <h2>Importer un CV</h2>
+          <button onClick={onCancel} className="close-button">✕</button>
+        </div>
+        <div className="cv-import-new-content">
+          {/* Le contenu est copié depuis le mode embedded ci-dessus */}
+          <div className="cv-display-panel">
+            <div className="cv-display-header">
+              <h3>CV importé</h3>
+              {!file && (
+                <div className="file-selector">
+                  <input
+                    type="file"
+                    id="cv-file-input-overlay"
+                    accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
+                    onChange={handleFileChange}
+                    className="file-input"
+                  />
+                  <label htmlFor="cv-file-input-overlay" className="file-input-label">
+                    Choisir un fichier
+                  </label>
+                </div>
+              )}
+            </div>
+            {extractingPdfText && (
+              <div className="analysis-progress">
+                <p>Extraction du texte du PDF...</p>
+              </div>
+            )}
+            <div
+              ref={cvDisplayRef}
+              className="cv-display-content"
+              onMouseUp={handleTextSelection}
+              onSelect={handleTextSelection}
+            >
+              {fileType === 'application/pdf' && fileContent ? (
+                <>
+                  <div className="pdf-container">
+                    <embed
+                      src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                      type="application/pdf"
+                      className="pdf-viewer"
+                      title="CV PDF"
+                      onMouseUp={handleTextSelection}
+                    />
+                    {selectedText && selectedText.trim().length > 0 && (
+                      <div
+                        className="pdf-drag-overlay"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          if (selectedText && selectedText.trim().length > 0) {
+                            handleDragStart(e, selectedText);
+                          }
+                        }}
+                        onMouseDown={(e) => e.preventDefault()}
+                      >
+                        <div className="drag-indicator">
+                          <span>📎 Glisser "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" vers un champ</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {pdfTextContent && (
+                    <div 
+                      className="text-content pdf-text-content"
+                      onMouseUp={handleTextSelection}
+                      onSelect={handleTextSelection}
+                    >
+                      <div className="pdf-text-header">
+                        <strong>Texte extrait (sélectionnable pour glisser-déposer) :</strong>
+                      </div>
+                      {pdfTextContent.split('\n').map((line, idx) => {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.length === 0) {
+                          return <div key={idx} className="text-line-empty">&nbsp;</div>;
+                        }
+                        const isSelected = selectedText ? line.includes(selectedText) : false;
+                        return (
+                          <div
+                            key={idx}
+                            className={`text-line ${isSelected ? 'selected-text' : ''}`}
+                            draggable={isSelected && !!selectedText && selectedText.trim().length > 0}
+                            onDragStart={(e) => {
+                              if (selectedText && selectedText.trim().length > 0) {
+                                handleDragStart(e, selectedText);
+                              }
+                            }}
+                            onMouseDown={() => {}}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
+              ) : fileContent ? (
+                <div className="text-content">
+                  {fileContent.split('\n').map((line, idx) => {
+                    const isSelected = selectedText ? line.includes(selectedText) : false;
+                    return (
+                      <div
+                        key={idx}
+                        className={`text-line ${isSelected ? 'selected-text' : ''}`}
+                        draggable={isSelected && !!selectedText}
+                        onDragStart={(e) => {
+                          if (selectedText) {
+                            handleDragStart(e, selectedText);
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          if (isSelected && selectedText) {
+                            e.preventDefault();
+                          }
+                        }}
+                      >
+                        {line}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className="no-cv-message">
+                  <p>Sélectionnez un fichier CV pour commencer</p>
+                  <p className="hint">Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, Texte</p>
+                </div>
+              )}
+            </div>
+            {selectedText && (
+              <div className="selected-text-info">
+                <strong>Texte sélectionné :</strong> "{selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}"
+                <button onClick={() => setSelectedText('')} className="clear-selection">✕</button>
+              </div>
+            )}
+          </div>
+          <div className="fields-editor-panel">
+            <div className="fields-editor-header">
+              <h3>Champs CV</h3>
+              <div className="language-selector">
+                <label>Langue de travail :</label>
+                <select
+                  value={workingLanguage}
+                  onChange={(e) => handleChangeWorkingLanguage(e.target.value)}
+                  className="language-select"
+                >
+                  {availableLanguages.map(lang => (
+                    <option key={lang} value={lang}>
+                      {lang.toUpperCase()} ({getLanguageName(lang)})
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="fields-list-container">
+              <div className="fields-list" style={{ width: `${fieldsListWidth}px` }}>
+                <div className="fields-list-header-import">
+                  <button 
+                    onClick={() => setShowAddField(!showAddField)} 
+                    className="add-field-button-import"
+                  >
+                    + Champ
+                  </button>
+                  {selectedFields.size > 1 && (
+                    <button 
+                      onClick={() => setSelectedFields(new Set())} 
+                      className="clear-selection-button"
+                      title="Désélectionner"
+                    >
+                      ✕ {selectedFields.size}
+                    </button>
+                  )}
+                </div>
+                {showAddField && (
+                  <div className="add-field-form-import">
+                    <input
+                      type="text"
+                      placeholder="Nom du champ"
+                      value={newFieldName}
+                      onChange={(e) => setNewFieldName(e.target.value)}
+                      className="new-field-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Tag"
+                      value={newFieldTag}
+                      onChange={(e) => setNewFieldTag(e.target.value)}
+                      className="new-field-input"
+                    />
+                    <div className="add-field-actions">
+                      <button onClick={handleAddField} className="confirm-add-button">
+                        Ajouter
+                      </button>
+                      <button onClick={() => {
+                        setShowAddField(false);
+                        setNewFieldName('');
+                        setNewFieldTag('');
+                      }} className="cancel-add-button">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {userFields.map((field, index) => {
+                  const isSelected = selectedFields.has(field.id);
+                  const isDragging = draggedIndex === index || draggedIndices.includes(index);
+                  return (
+                    <div
+                      key={field.id}
+                      className={`field-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${selectedFields.size > 1 && isSelected ? 'multi-selected' : ''}`}
+                      onClick={(e) => handleFieldClick(field, e)}
+                      draggable
+                      onDragStart={(e) => handleFieldDragStart(index, e)}
+                      onDragOver={(e) => handleFieldDragOver(e, index)}
+                      onDragEnd={handleFieldDragEnd}
+                    >
+                      <span className="drag-handle">☰</span>
+                      <div className="field-item-content">
+                        <span className="field-name">{field.name}</span>
+                        <span className="field-tag">{field.tag}</span>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div 
+                className="fields-list-resizer"
+                onMouseDown={handleResizeStart}
+                style={{ cursor: 'col-resize' }}
+              />
               {selectedField && (
                 <div className="field-editor-container">
                   <FieldEditor

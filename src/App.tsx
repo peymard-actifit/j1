@@ -2,9 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { CVImportNew } from './components/CVImportNew';
 import { LoginScreen } from './components/LoginScreen';
-import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { DataEditor } from './components/DataEditor';
 import { storage } from './utils/storage';
@@ -14,11 +12,10 @@ import './App.css';
 const AppContent = () => {
   const { user, setUser } = useAuth();
   const [showWelcome, setShowWelcome] = useState(false);
-  const [showCVUpload, setShowCVUpload] = useState(false);
-  const [showDataEditor, setShowDataEditor] = useState(false);
+  const [showDataEditor, setShowDataEditor] = useState(true); // Toujours afficher l'éditeur
+  const [showImport, setShowImport] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
-  const [currentModule, setCurrentModule] = useState<string | null>(null);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -156,75 +153,14 @@ const AppContent = () => {
       <NavigationBar
         onModuleClick={(module) => setCurrentModule(module)}
         onAIClick={() => setShowAIPanel(true)}
+        onImportClick={() => setShowImport(!showImport)}
       />
       <div className="app-content" style={{ marginTop: '50px' }}>
-        <Header
-          onEditClick={() => setShowDataEditor(true)}
-        />
-        
-        {/* Le AdminPanel est maintenant dans Header */}
-
-        {!showWelcome && !showCVUpload && !showDataEditor && user && (
-          <div className="main-dashboard">
-            <h1>Bienvenue, {user.name} !</h1>
-            <p>Gérez vos données CV et générez des CVs personnalisés.</p>
-            
-            <div className="dashboard-actions">
-              {/* Afficher "Nouveau CV" uniquement si l'utilisateur n'a pas encore de données */}
-              {(!user.data || user.data.length === 0) && (
-                <button
-                  className="dashboard-button"
-                  onClick={() => {
-                    // Partir de zéro - initialiser avec structure par défaut
-                    const defaultData = initializeDefaultStructure();
-                    const updatedUser = { ...user, data: defaultData };
-                    storage.saveUser(updatedUser).catch(error => {
-                      console.error('Error saving default structure:', error);
-                    });
-                    setShowDataEditor(true);
-                  }}
-                >
-                  Nouveau CV
-                </button>
-              )}
-              {/* Afficher "Éditer mes données" uniquement si l'utilisateur a déjà des données */}
-              {user.data && user.data.length > 0 && (
-                <button
-                  className="dashboard-button"
-                  onClick={() => setShowDataEditor(true)}
-                >
-                  Éditer mes données
-                </button>
-              )}
-              <button
-                className="dashboard-button"
-                onClick={() => setShowCVUpload(true)}
-              >
-                Importer un CV
-              </button>
-            </div>
-
-            {currentModule && (
-              <div className="module-view">
-                <h2>Module: {currentModule}</h2>
-                <p>Fonctionnalité en développement...</p>
-              </div>
-            )}
-          </div>
-        )}
-
-        {showCVUpload && (
-          <CVImportNew
-            onComplete={() => {
-              setShowCVUpload(false);
-              setShowDataEditor(true);
-            }}
-            onCancel={() => setShowCVUpload(false)}
+        {showDataEditor && user && (
+          <DataEditor 
+            showImport={showImport}
+            onImportClose={() => setShowImport(false)}
           />
-        )}
-
-        {showDataEditor && (
-          <DataEditor onClose={() => setShowDataEditor(false)} />
         )}
 
         {showAIPanel && (
