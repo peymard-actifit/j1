@@ -48,30 +48,17 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const extractPdfTextWithPdfJs = async (file: File): Promise<void> => {
     try {
       const pdfjsLib = await import('pdfjs-dist');
-      // Configurer le worker depuis le dossier public (copié lors du build)
-      // Essayer d'abord le worker local, puis les CDN en fallback
+      // Configurer le worker - utiliser le worker local d'abord, puis les CDN en fallback
+      // Pour pdfjs-dist 5.4.449, le worker est en .mjs
+      const workerVersion = pdfjsLib.version || '5.4.449';
       const workerPaths = [
-        '/pdf.worker.min.mjs', // Worker local dans public
-        `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`, // unpkg avec .mjs
-        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.mjs`, // jsdelivr avec .mjs
-        `https://unpkg.com/pdfjs-dist@${pdfjsLib.version}/build/pdf.worker.min.js`, // unpkg avec .js
+        '/pdf.worker.min.mjs', // Worker local dans public (priorité)
+        `https://unpkg.com/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`, // unpkg avec .mjs
+        `https://cdn.jsdelivr.net/npm/pdfjs-dist@${workerVersion}/build/pdf.worker.min.mjs`, // jsdelivr avec .mjs
       ];
       
-      // Essayer chaque chemin jusqu'à ce qu'un fonctionne
-      let workerSet = false;
-      for (const workerPath of workerPaths) {
-        try {
-          pdfjsLib.GlobalWorkerOptions.workerSrc = workerPath;
-          workerSet = true;
-          break;
-        } catch (e) {
-          continue;
-        }
-      }
-      
-      if (!workerSet) {
-        throw new Error('Impossible de configurer le worker pdf.js');
-      }
+      // Utiliser le premier chemin disponible (le local en priorité)
+      pdfjsLib.GlobalWorkerOptions.workerSrc = workerPaths[0];
       
       const arrayBuffer = await file.arrayBuffer();
       const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
