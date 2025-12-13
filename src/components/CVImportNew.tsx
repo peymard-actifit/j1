@@ -187,14 +187,26 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     }
   };
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection();
-    if (selection && selection.toString().trim()) {
-      const text = selection.toString().trim();
-      setSelectedText(text);
-      
-      // La position du texte sélectionné est stockée dans selectedText
-    }
+  const handleTextSelection = (e?: React.MouseEvent | React.SyntheticEvent) => {
+    // Attendre un peu pour que la sélection soit complète
+    setTimeout(() => {
+      const selection = window.getSelection();
+      if (selection && selection.toString().trim()) {
+        const text = selection.toString().trim();
+        setSelectedText(text);
+      } else {
+        // Si pas de sélection, vérifier si on peut obtenir le texte depuis le PDF
+        // (certains navigateurs permettent la sélection native dans les embeds)
+        const activeElement = document.activeElement;
+        if (activeElement && activeElement.tagName === 'EMBED') {
+          // La sélection peut être disponible via getSelection même avec embed
+          const sel = window.getSelection();
+          if (sel && sel.toString().trim()) {
+            setSelectedText(sel.toString().trim());
+          }
+        }
+      }
+    }, 50);
   };
 
   const handleDragStart = (e: React.DragEvent, text: string) => {
@@ -516,78 +528,34 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
             <div
               ref={cvDisplayRef}
               className="cv-display-content"
-              onMouseUp={handleTextSelection}
-              onSelect={handleTextSelection}
             >
               {fileType === 'application/pdf' && fileContent ? (
-                <>
-                  {/* Affichage visuel du PDF avec embed */}
-                  <div className="pdf-container">
-                    <embed
-                      src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
-                      type="application/pdf"
-                      className="pdf-viewer"
-                      title="CV PDF"
-                      onMouseUp={handleTextSelection}
-                    />
-                    {/* Overlay transparent pour capturer les événements de sélection et drag */}
+                <div className="pdf-container">
+                  <embed
+                    src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                    type="application/pdf"
+                    className="pdf-viewer"
+                    title="CV PDF"
+                  />
+                  {/* Overlay transparent pour capturer la sélection et permettre le drag */}
+                  <div
+                    className="pdf-selection-overlay"
+                    onMouseUp={handleTextSelection}
+                    onSelect={handleTextSelection}
+                    draggable={selectedText && selectedText.trim().length > 0}
+                    onDragStart={(e) => {
+                      if (selectedText && selectedText.trim().length > 0) {
+                        handleDragStart(e, selectedText);
+                      }
+                    }}
+                  >
                     {selectedText && selectedText.trim().length > 0 && (
-                      <div
-                        className="pdf-drag-overlay"
-                        draggable={true}
-                        onDragStart={(e) => {
-                          if (selectedText && selectedText.trim().length > 0) {
-                            handleDragStart(e, selectedText);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          // Permettre de commencer le drag depuis la sélection
-                          e.preventDefault();
-                        }}
-                      >
-                        <div className="drag-indicator">
-                          <span>📎 Glisser "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" vers un champ</span>
-                        </div>
+                      <div className="drag-indicator">
+                        <span>📎 Glisser "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" vers un champ</span>
                       </div>
                     )}
                   </div>
-                  {/* Texte extrait pour sélection et drag & drop - affiché en dessous */}
-                  {pdfTextContent && (
-                    <div 
-                      className="text-content pdf-text-content"
-                      onMouseUp={handleTextSelection}
-                      onSelect={handleTextSelection}
-                    >
-                      <div className="pdf-text-header">
-                        <strong>Texte extrait (sélectionnable pour glisser-déposer) :</strong>
-                      </div>
-                      {pdfTextContent.split('\n').map((line, idx) => {
-                        const trimmedLine = line.trim();
-                        if (trimmedLine.length === 0) {
-                          return <div key={idx} className="text-line-empty">&nbsp;</div>;
-                        }
-                        const isSelected = selectedText ? line.includes(selectedText) : false;
-                        return (
-                          <div
-                            key={idx}
-                            className={`text-line ${isSelected ? 'selected-text' : ''}`}
-                            draggable={isSelected && !!selectedText && selectedText.trim().length > 0}
-                            onDragStart={(e) => {
-                              if (selectedText && selectedText.trim().length > 0) {
-                                handleDragStart(e, selectedText);
-                              }
-                            }}
-                            onMouseDown={() => {
-                              // Permettre la sélection de texte
-                            }}
-                          >
-                            {line}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </>
+                </div>
               ) : fileContent ? (
                 <div className="text-content">
                   {fileContent.split('\n').map((line, idx) => {
