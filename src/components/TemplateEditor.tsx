@@ -271,7 +271,7 @@ export const TemplateEditor = ({
                 value={content}
                 onChange={(e) => setContent(e.target.value)}
                 placeholder="Contenu du template..."
-                rows={20}
+                rows={15}
               />
             </div>
           )}
