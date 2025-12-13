@@ -278,16 +278,58 @@
   position: relative;
 }
 
+.pdf-container {
+  position: relative;
+  width: 100%;
+  margin-bottom: 1rem;
+}
+
 .pdf-viewer {
   width: 100%;
-  height: 100%;
-  border: none;
+  min-height: 600px;
+  height: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
   background: white;
-  width: 100%;
-  height: 100%;
-  border: none;
-  /* Masquer la pagination et les contrôles du PDF */
+}
+
+.pdf-drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  z-index: 10;
+}
+
+.pdf-drag-overlay[draggable="true"] {
+  pointer-events: auto;
+  cursor: grab;
+}
+
+.pdf-drag-overlay[draggable="true"]:active {
+  cursor: grabbing;
+}
+
+.drag-indicator {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: #667eea;
+  color: white;
+  padding: 1rem 1.5rem;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  font-weight: 600;
+  font-size: 0.9rem;
+  z-index: 1000;
+  pointer-events: none;
+  white-space: nowrap;
+  max-width: 90vw;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Masquer les éléments de pagination dans le PDF si possible */
