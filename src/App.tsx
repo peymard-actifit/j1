@@ -18,19 +18,11 @@ const AppContent = () => {
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Initialiser showWelcome selon l'état de l'utilisateur
+  // Initialiser selon l'état de l'utilisateur
   useEffect(() => {
     // Attendre un peu pour que l'auth se charge
     const timer = setTimeout(() => {
-      if (user === null || user === undefined) {
-        // Utilisateur non connecté - afficher le welcome
-        setShowWelcome(true);
-        setIsLoading(false);
-      } else if (user) {
-        // Utilisateur connecté - masquer le welcome
-        setShowWelcome(false);
-        setIsLoading(false);
-      }
+      setIsLoading(false);
     }, 100);
     
     return () => clearTimeout(timer);
