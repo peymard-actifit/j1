@@ -27,6 +27,7 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   const [isResizing, setIsResizing] = useState(false);
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
   const [selectedText, setSelectedText] = useState<string>('');
+  const [showFieldSelectionModal, setShowFieldSelectionModal] = useState(false);
   const cvDisplayRef = useRef<HTMLDivElement>(null);
   const [showAddField, setShowAddField] = useState(false);
   const [newFieldName, setNewFieldName] = useState('');
@@ -501,23 +502,20 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
         <div className="cv-import-new-content-embedded">
           {/* Partie gauche : Affichage du CV uniquement */}
           <div className="cv-display-panel">
-            <div className="cv-display-header">
-              <h3>CV importé</h3>
-              {!file && (
-                <div className="file-selector">
-                  <input
-                    type="file"
-                    id="cv-file-input"
-                    accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
-                    onChange={handleFileChange}
-                    className="file-input"
-                  />
-                  <label htmlFor="cv-file-input" className="file-input-label">
-                    Choisir un fichier
-                  </label>
-                </div>
-              )}
-            </div>
+            {!file && (
+              <div className="file-selector-embedded">
+                <input
+                  type="file"
+                  id="cv-file-input"
+                  accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
+                  onChange={handleFileChange}
+                  className="file-input"
+                />
+                <label htmlFor="cv-file-input" className="file-input-label">
+                  Choisir un fichier
+                </label>
+              </div>
+            )}
 
             {extractingPdfText && (
               <div className="analysis-progress">
