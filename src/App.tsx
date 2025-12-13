@@ -63,7 +63,6 @@ const AppContent = () => {
   useEffect(() => {
     if (user && pendingChoice) {
       setShowLogin(false);
-      setShowWelcome(false);
       // Attendre un peu pour s'assurer que tout est bien chargé
       setTimeout(() => {
         if (pendingChoice === 'cv') {
@@ -97,11 +96,9 @@ const AppContent = () => {
     // Si l'utilisateur n'est pas connecté, demander de créer un compte
     if (!user) {
       setPendingChoice(hasCV ? 'cv' : 'zero');
-      setShowWelcome(false);
       setShowLogin(true);
     } else {
       // Utilisateur connecté, procéder directement
-      setShowWelcome(false);
       if (hasCV) {
         setShowImport(true);
       } else {
@@ -132,7 +129,6 @@ const AppContent = () => {
   if (showLogin && !user) {
     return <LoginScreen onClose={() => {
       setShowLogin(false);
-      setShowWelcome(true); // Revenir au welcome si on ferme le login
       setPendingChoice(null);
     }} />;
   }
