@@ -24,6 +24,10 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
   const [selectedText, setSelectedText] = useState<string>('');
   const cvDisplayRef = useRef<HTMLDivElement>(null);
+  const [parsingSteps, setParsingSteps] = useState<Array<{step: string; text?: string; field?: string; version?: number}>>([]);
+  const [showAddField, setShowAddField] = useState(false);
+  const [newFieldName, setNewFieldName] = useState('');
+  const [newFieldTag, setNewFieldTag] = useState('');
 
   useEffect(() => {
     if (user) {
@@ -104,8 +108,13 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     }
   };
 
-  // Fonction pour mapper automatiquement les données extraites aux champs
-  const autoMapCVData = async (extracted: any, fields: UserDataField[], targetLanguage: string): Promise<UserDataField[]> => {
+  // Fonction pour mapper automatiquement les données extraites aux champs avec feedback visuel
+  const autoMapCVData = async (
+    extracted: any, 
+    fields: UserDataField[], 
+    targetLanguage: string,
+    onProgress?: (step: string, text?: string, field?: string, version?: number) => void
+  ): Promise<UserDataField[]> => {
     const fieldMap: Record<string, string[]> = {
       'prenom': ['firstname', 'firstName', 'prenom', 'prénom'],
       'nom': ['lastname', 'lastName', 'nom', 'surname'],
@@ -117,11 +126,15 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     const mappedKeys = new Set<string>();
     const updatedFields = fields.map(f => ({ ...f }));
 
+    onProgress?.('Début du parsing des données...');
+
     // Mapper les champs simples
-    Object.entries(extracted).forEach(([key, value]) => {
+    Object.entries(extracted).forEach(([key, value], index) => {
       if (!value || typeof value === 'object' || Array.isArray(value)) return;
       const valueStr = String(value).trim();
       if (!valueStr) return;
+
+      onProgress?.(`Analyse de "${key}"...`, valueStr.substring(0, 50));
 
       updatedFields.forEach((field) => {
         if (mappedKeys.has(key)) return;
@@ -134,6 +147,8 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
 
         if (matches && !valueExistsInField(field, valueStr, targetLanguage)) {
           const availableVersion = findAvailableVersion(field, targetLanguage);
+          onProgress?.(`→ Mapping "${key}" vers "${field.name}" (version ${availableVersion})`, valueStr, field.name, availableVersion);
+          
           if (targetLanguage === field.baseLanguage) {
             const existingVersions = field.aiVersions || [];
             const versionIndex = existingVersions.findIndex(v => v.version === availableVersion);
@@ -153,6 +168,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
       });
     });
 
+    onProgress?.('Parsing terminé !');
     return updatedFields;
   };
 
@@ -162,14 +178,27 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     }
 
     setAnalyzing(true);
+    setParsingSteps([]);
     setAnalysisProgress('Démarrage de l\'analyse...');
 
     try {
       setAnalysisProgress('Extraction du texte du CV...');
+      setParsingSteps([{ step: 'Extraction du texte du CV...' }]);
+      
       const analysis = await analyzeCVFile(file, userFields);
       
       setAnalysisProgress('Parsing des données et remplissage automatique des champs...');
-      const updatedFields = await autoMapCVData(analysis, userFields, workingLanguage);
+      setParsingSteps([{ step: 'Parsing des données...' }]);
+      
+      const updatedFields = await autoMapCVData(
+        analysis, 
+        userFields, 
+        workingLanguage,
+        (step, text, field, version) => {
+          setParsingSteps(prev => [...prev, { step, text, field, version }]);
+          setAnalysisProgress(step);
+        }
+      );
       setUserFields(updatedFields);
       
       if (user && setUser) {
@@ -179,11 +208,47 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
       }
       
       setAnalysisProgress('Import terminé ! Les données ont été automatiquement placées dans les champs.');
+      setParsingSteps(prev => [...prev, { step: 'Import terminé !' }]);
     } catch (error: any) {
       console.error('Error analyzing CV:', error);
       setAnalysisProgress(`Erreur: ${error.message}`);
+      setParsingSteps(prev => [...prev, { step: `Erreur: ${error.message}` }]);
     } finally {
       setAnalyzing(false);
+    }
+  };
+
+  const handleAddField = async () => {
+    if (!user || !setUser || !newFieldName.trim() || !newFieldTag.trim()) {
+      return;
+    }
+
+    const newField: UserDataField = {
+      id: `field-${Date.now()}`,
+      name: newFieldName.trim(),
+      tag: newFieldTag.trim(),
+      type: 'Text',
+      baseLanguage: workingLanguage,
+      aiVersions: [],
+      languageVersions: [],
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    const updatedFields = [...userFields, newField];
+    setUserFields(updatedFields);
+    setSelectedField(newField);
+    setShowAddField(false);
+    setNewFieldName('');
+    setNewFieldTag('');
+
+    try {
+      const updatedUser = { ...user, data: updatedFields };
+      const savedUser = await storage.saveUser(updatedUser);
+      setUser(savedUser);
+    } catch (error) {
+      console.error('Error adding field:', error);
+      alert('Erreur lors de l\'ajout du champ');
     }
   };
 
@@ -357,6 +422,32 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
               </div>
             )}
 
+            {parsingSteps.length > 0 && (
+              <div className="parsing-steps">
+                <h4>Progression du parsing :</h4>
+                <div className="parsing-steps-list">
+                  {parsingSteps.map((step, idx) => (
+                    <div key={idx} className="parsing-step-item">
+                      <div className="parsing-step-header">
+                        <span className="parsing-step-number">{idx + 1}</span>
+                        <span className="parsing-step-text">{step.step}</span>
+                      </div>
+                      {step.text && (
+                        <div className="parsing-step-detail">
+                          <strong>Texte :</strong> "{step.text}{step.text.length > 50 ? '...' : ''}"
+                        </div>
+                      )}
+                      {step.field && (
+                        <div className="parsing-step-detail">
+                          <strong>→ Champ :</strong> {step.field} <strong>Version :</strong> {step.version}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             <div
               ref={cvDisplayRef}
               className="cv-display-content"
@@ -433,6 +524,44 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
 
             <div className="fields-list-container">
               <div className="fields-list">
+                <div className="fields-list-header-import">
+                  <button 
+                    onClick={() => setShowAddField(!showAddField)} 
+                    className="add-field-button-import"
+                  >
+                    + Champ
+                  </button>
+                </div>
+                {showAddField && (
+                  <div className="add-field-form-import">
+                    <input
+                      type="text"
+                      placeholder="Nom du champ"
+                      value={newFieldName}
+                      onChange={(e) => setNewFieldName(e.target.value)}
+                      className="new-field-input"
+                    />
+                    <input
+                      type="text"
+                      placeholder="Tag"
+                      value={newFieldTag}
+                      onChange={(e) => setNewFieldTag(e.target.value)}
+                      className="new-field-input"
+                    />
+                    <div className="add-field-actions">
+                      <button onClick={handleAddField} className="confirm-add-button">
+                        Ajouter
+                      </button>
+                      <button onClick={() => {
+                        setShowAddField(false);
+                        setNewFieldName('');
+                        setNewFieldTag('');
+                      }} className="cancel-add-button">
+                        Annuler
+                      </button>
+                    </div>
+                  </div>
+                )}
                 {userFields.map((field) => (
                   <div
                     key={field.id}

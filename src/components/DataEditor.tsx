@@ -1034,6 +1034,23 @@ export const FieldEditor = ({
                       
                       return (
                         <div key={version} className="language-version-input-inline">
+                          <div className="version-label-with-buttons">
+                            <label className="version-label">Version {version}</label>
+                            {isManuallyModified && (
+                              <button
+                                className="reset-translation-button"
+                                onClick={async () => {
+                                  if (autoTranslation) {
+                                    const updatedField = addTranslationToField(field, language, autoTranslation, version);
+                                    await onSave(updatedField);
+                                  }
+                                }}
+                                title="Réinitialiser avec la traduction automatique"
+                              >
+                                ↻
+                              </button>
+                            )}
+                          </div>
                           <div 
                             className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}
                             onDragOver={onDragOver}
@@ -1049,20 +1066,6 @@ export const FieldEditor = ({
                               rows={2}
                               placeholder={`Version ${version}`}
                             />
-                            {isManuallyModified && (
-                              <button
-                                className="reset-translation-button"
-                                onClick={async () => {
-                                  if (autoTranslation) {
-                                    const updatedField = addTranslationToField(field, language, autoTranslation, version);
-                                    await onSave(updatedField);
-                                  }
-                                }}
-                                title="Réinitialiser avec la traduction automatique"
-                              >
-                                ↻
-                              </button>
-                            )}
                           </div>
                         </div>
                       );

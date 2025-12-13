@@ -471,12 +471,9 @@
 }
 
 .version-buttons {
-  position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
   display: flex;
   gap: 0.25rem;
-  z-index: 1;
+  align-items: center;
 }
 
 .translate-version-button,

@@ -128,6 +128,146 @@
   border-bottom: 1px solid #e0e0e0;
   color: #1976d2;
   font-size: 0.9rem;
+  flex-shrink: 0;
+}
+
+.parsing-steps {
+  padding: 0.75rem 1rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e0e0e0;
+  max-height: 200px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.parsing-steps h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.parsing-steps-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.parsing-step-item {
+  padding: 0.5rem;
+  background: white;
+  border-left: 3px solid #667eea;
+  border-radius: 4px;
+  font-size: 0.85rem;
+}
+
+.parsing-step-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.25rem;
+}
+
+.parsing-step-number {
+  background: #667eea;
+  color: white;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.parsing-step-text {
+  color: #333;
+  font-weight: 500;
+}
+
+.parsing-step-detail {
+  margin-left: 28px;
+  color: #666;
+  font-size: 0.8rem;
+  margin-top: 0.25rem;
+}
+
+.fields-list-header-import {
+  padding: 0.75rem;
+  border-bottom: 1px solid #e0e0e0;
+  background: white;
+}
+
+.add-field-button-import {
+  width: 100%;
+  padding: 0.5rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.add-field-button-import:hover {
+  background: #5568d3;
+}
+
+.add-field-form-import {
+  padding: 0.75rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e0e0e0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.new-field-input {
+  padding: 0.5rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.85rem;
+}
+
+.new-field-input:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.add-field-actions {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.confirm-add-button,
+.cancel-add-button {
+  flex: 1;
+  padding: 0.4rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
+.confirm-add-button {
+  background: #4caf50;
+  color: white;
+}
+
+.confirm-add-button:hover {
+  background: #45a049;
+}
+
+.cancel-add-button {
+  background: #e0e0e0;
+  color: #333;
+}
+
+.cancel-add-button:hover {
+  background: #d0d0d0;
 }
 
 .cv-display-content {
