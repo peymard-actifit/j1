@@ -188,6 +188,74 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     }
   };
 
+  const findAvailableVersion = (field: UserDataField, language: string): 1 | 2 | 3 => {
+    // Chercher la première version vide
+    if (language === field.baseLanguage) {
+      const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
+      const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
+      const v3 = field.aiVersions.find(v => v.version === 3)?.value || '';
+      if (!v1 || v1.trim() === '') return 1;
+      if (!v2 || v2.trim() === '') return 2;
+      return 3;
+    } else {
+      const versions = field.languageVersions.filter(v => v.language === language);
+      const v1 = versions.find(v => v.version === 1)?.value || '';
+      const v2 = versions.find(v => v.version === 2)?.value || '';
+      const v3 = versions.find(v => v.version === 3)?.value || '';
+      if (!v1 || v1.trim() === '') return 1;
+      if (!v2 || v2.trim() === '') return 2;
+      return 3;
+    }
+  };
+
+  const getRelevantFields = (text: string): UserDataField[] => {
+    // Logique simple pour trouver des champs pertinents basée sur les mots-clés
+    const textLower = text.toLowerCase();
+    const keywords: Record<string, string[]> = {
+      'nom': ['nom', 'name', 'prénom', 'prenom', 'firstname'],
+      'prénom': ['prénom', 'prenom', 'firstname', 'first name'],
+      'email': ['email', 'e-mail', 'mail', 'courriel'],
+      'téléphone': ['téléphone', 'telephone', 'phone', 'tel', 'mobile'],
+      'adresse': ['adresse', 'address', 'rue', 'street'],
+      'expérience': ['expérience', 'experience', 'xp', 'emploi', 'job', 'travail', 'work'],
+      'formation': ['formation', 'education', 'diplôme', 'diplome', 'université', 'university', 'école', 'ecole'],
+      'compétence': ['compétence', 'competence', 'skill', 'savoir', 'savoir-faire'],
+      'langue': ['langue', 'language', 'lang', 'anglais', 'english', 'français', 'french'],
+      'projet': ['projet', 'project', 'réalisation', 'realisation'],
+    };
+
+    const scoredFields = userFields.map(field => {
+      let score = 0;
+      const fieldNameLower = field.name.toLowerCase();
+      const fieldTagLower = field.tag.toLowerCase();
+
+      for (const [category, keys] of Object.entries(keywords)) {
+        if (keys.some(key => textLower.includes(key))) {
+          if (fieldNameLower.includes(category) || fieldTagLower.includes(category)) {
+            score += 10;
+          }
+        }
+      }
+
+      // Bonus si le tag ou le nom contient des mots du texte
+      const textWords = textLower.split(/\s+/).filter(w => w.length > 3);
+      textWords.forEach(word => {
+        if (fieldNameLower.includes(word) || fieldTagLower.includes(word)) {
+          score += 5;
+        }
+      });
+
+      return { field, score };
+    });
+
+    // Retourner les 5 champs les plus pertinents
+    return scoredFields
+      .filter(item => item.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 5)
+      .map(item => item.field);
+  };
+
   const handleTextSelection = () => {
     // Attendre un peu pour que la sélection soit complète
     setTimeout(() => {
@@ -195,19 +263,74 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
       if (selection && selection.toString().trim()) {
         const text = selection.toString().trim();
         setSelectedText(text);
+        // Afficher le pop-up avec les champs pertinents
+        setShowFieldSelectionModal(true);
       } else {
         // Si pas de sélection, vérifier si on peut obtenir le texte depuis le PDF
-        // (certains navigateurs permettent la sélection native dans les embeds)
         const activeElement = document.activeElement;
         if (activeElement && activeElement.tagName === 'EMBED') {
-          // La sélection peut être disponible via getSelection même avec embed
           const sel = window.getSelection();
           if (sel && sel.toString().trim()) {
-            setSelectedText(sel.toString().trim());
+            const text = sel.toString().trim();
+            setSelectedText(text);
+            setShowFieldSelectionModal(true);
           }
         }
       }
     }, 50);
+  };
+
+  const handleInsertIntoField = async (field: UserDataField) => {
+    if (!selectedText || !user || !setUser) return;
+
+    const version = findAvailableVersion(field, workingLanguage);
+    const updatedField = { ...field };
+
+    if (workingLanguage === field.baseLanguage) {
+      // Mettre à jour dans aiVersions
+      const existingIndex = updatedField.aiVersions.findIndex(v => v.version === version);
+      if (existingIndex >= 0) {
+        updatedField.aiVersions[existingIndex].value = selectedText;
+      } else {
+        updatedField.aiVersions.push({
+          version: version,
+          value: selectedText,
+          createdAt: new Date().toISOString()
+        });
+      }
+    } else {
+      // Mettre à jour dans languageVersions
+      const existingIndex = updatedField.languageVersions.findIndex(
+        v => v.language === workingLanguage && v.version === version
+      );
+      if (existingIndex >= 0) {
+        updatedField.languageVersions[existingIndex].value = selectedText;
+      } else {
+        updatedField.languageVersions.push({
+          language: workingLanguage,
+          version: version,
+          value: selectedText,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+
+    // Sauvegarder
+    const updatedFields = userFields.map(f => f.id === field.id ? updatedField : f);
+    setUserFields(updatedFields);
+
+    try {
+      const updatedUser = { ...user, data: updatedFields };
+      const savedUser = await storage.saveUser(updatedUser);
+      setUser(savedUser);
+    } catch (error) {
+      console.error('Error saving field:', error);
+    }
+
+    // Fermer le pop-up et réinitialiser
+    setShowFieldSelectionModal(false);
+    setSelectedText('');
+    window.getSelection()?.removeAllRanges();
   };
 
   const handleDragStart = (e: React.DragEvent, text: string) => {
@@ -495,121 +618,154 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     return names[code] || code.toUpperCase();
   };
 
-  if (embeddedMode) {
-    // Mode intégré dans DataEditor (sans overlay) - seulement l'affichage du document
-    return (
-      <div className="cv-import-new-embedded">
-        <div className="cv-import-new-content-embedded">
-          {/* Partie gauche : Affichage du CV uniquement */}
-          <div className="cv-display-panel">
-            {!file && (
-              <div className="file-selector-embedded">
-                <input
-                  type="file"
-                  id="cv-file-input"
-                  accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
-                  onChange={handleFileChange}
-                  className="file-input"
-                />
-                <label htmlFor="cv-file-input" className="file-input-label">
-                  Choisir un fichier
-                </label>
-              </div>
-            )}
+  // Modal de sélection de champ
+  const relevantFields = selectedText ? getRelevantFields(selectedText) : [];
 
-            {extractingPdfText && (
-              <div className="analysis-progress">
-                <p>Extraction du texte du PDF...</p>
-              </div>
-            )}
-
-            <div
-              ref={cvDisplayRef}
-              className="cv-display-content"
+  const renderModal = () => (
+    showFieldSelectionModal && selectedText && (
+      <div className="field-selection-modal-overlay" onClick={() => {
+        setShowFieldSelectionModal(false);
+        setSelectedText('');
+        window.getSelection()?.removeAllRanges();
+      }}>
+        <div className="field-selection-modal" onClick={(e) => e.stopPropagation()}>
+          <div className="field-selection-modal-header">
+            <h3>Où placer ce texte ?</h3>
+            <button 
+              className="close-modal-button"
+              onClick={() => {
+                setShowFieldSelectionModal(false);
+                setSelectedText('');
+                window.getSelection()?.removeAllRanges();
+              }}
             >
-              {fileType === 'application/pdf' && fileContent ? (
-                <div className="pdf-container">
-                  <embed
-                    src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
-                    type="application/pdf"
-                    className="pdf-viewer"
-                    title="CV PDF"
-                  />
-                  {/* Overlay transparent pour capturer la sélection et permettre le drag */}
-                  <div
-                    className="pdf-selection-overlay"
-                    onMouseUp={handleTextSelection}
-                    onSelect={handleTextSelection}
-                    draggable={!!(selectedText && selectedText.trim().length > 0)}
-                    onDragStart={(e) => {
-                      if (selectedText && selectedText.trim().length > 0) {
-                        handleDragStart(e, selectedText);
-                      }
-                    }}
-                  >
-                    {selectedText && selectedText.trim().length > 0 && (
-                      <div className="drag-indicator">
-                        <span>📎 Glisser "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" vers un champ</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              ) : fileContent ? (
-                <div className="text-content">
-                  {fileContent.split('\n').map((line, idx) => {
-                    const isSelected = selectedText ? line.includes(selectedText) : false;
-                    return (
-                      <div
-                        key={idx}
-                        className={`text-line ${isSelected ? 'selected-text' : ''}`}
-                        draggable={isSelected && !!selectedText}
-                        onDragStart={(e) => {
-                          if (selectedText) {
-                            handleDragStart(e, selectedText);
-                          }
-                        }}
-                        onMouseDown={(e) => {
-                          if (isSelected && selectedText) {
-                            // Permettre de recliquer pour glisser
-                            e.preventDefault();
-                          }
-                        }}
-                      >
-                        {line}
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div className="no-cv-message">
-                  <p>Sélectionnez un fichier CV pour commencer</p>
-                  <p className="hint">Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, Texte</p>
-                </div>
-              )}
+              ✕
+            </button>
+          </div>
+          <div className="field-selection-modal-content">
+            <div className="selected-text-preview">
+              <strong>Texte sélectionné :</strong>
+              <p>"{selectedText.substring(0, 100)}{selectedText.length > 100 ? '...' : ''}"</p>
             </div>
-
-            {selectedText && (
-              <div className="selected-text-info">
-                <strong>Texte sélectionné :</strong> "{selectedText.substring(0, 50)}{selectedText.length > 50 ? '...' : ''}"
-                <button onClick={() => setSelectedText('')} className="clear-selection">✕</button>
+            {relevantFields.length > 0 ? (
+              <div className="relevant-fields-list">
+                <p className="suggestion-label">Champs suggérés :</p>
+                {relevantFields.map(field => (
+                  <button
+                    key={field.id}
+                    className="field-suggestion-button"
+                    onClick={() => handleInsertIntoField(field)}
+                  >
+                    <span className="field-suggestion-name">{field.name}</span>
+                    <span className="field-suggestion-tag">({field.tag})</span>
+                  </button>
+                ))}
               </div>
+            ) : (
+              <p className="no-suggestions">Aucun champ suggéré. Sélectionnez un champ manuellement.</p>
             )}
+            <div className="all-fields-list">
+              <p className="all-fields-label">Tous les champs :</p>
+              <div className="all-fields-scroll">
+                {userFields.map(field => (
+                  <button
+                    key={field.id}
+                    className="field-option-button"
+                    onClick={() => handleInsertIntoField(field)}
+                  >
+                    <span className="field-option-name">{field.name}</span>
+                    <span className="field-option-tag">({field.tag})</span>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    )
+  );
+
+  if (embeddedMode) {
+    // Mode intégré dans DataEditor (sans overlay) - seulement l'affichage du document
+    return (
+      <>
+        <div className="cv-import-new-embedded">
+          <div className="cv-import-new-content-embedded">
+            {/* Partie gauche : Affichage du CV uniquement */}
+            <div className="cv-display-panel">
+              {!file && (
+                <div className="file-selector-embedded">
+                  <input
+                    type="file"
+                    id="cv-file-input"
+                    accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
+                    onChange={handleFileChange}
+                    className="file-input"
+                  />
+                  <label htmlFor="cv-file-input" className="file-input-label">
+                    Choisir un fichier
+                  </label>
+                </div>
+              )}
+
+              {extractingPdfText && (
+                <div className="analysis-progress">
+                  <p>Extraction du texte du PDF...</p>
+                </div>
+              )}
+
+              <div
+                ref={cvDisplayRef}
+                className="cv-display-content"
+              >
+                {fileType === 'application/pdf' && fileContent ? (
+                  <div className="pdf-container">
+                    <embed
+                      src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                      type="application/pdf"
+                      className="pdf-viewer"
+                      title="CV PDF"
+                    />
+                    {/* Overlay transparent pour capturer la sélection */}
+                    <div
+                      className="pdf-selection-overlay"
+                      onMouseUp={handleTextSelection}
+                      onSelect={handleTextSelection}
+                    />
+                  </div>
+                ) : fileContent ? (
+                  <div className="text-content" onMouseUp={handleTextSelection} onSelect={handleTextSelection}>
+                    {fileContent.split('\n').map((line, idx) => (
+                      <div key={idx} className="text-line">
+                        {line}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="no-cv-message">
+                    <p>Sélectionnez un fichier CV pour commencer</p>
+                    <p className="hint">Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, Texte</p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+        {renderModal()}
+      </>
     );
   }
 
   // Mode overlay (ancien comportement)
-  // Le contenu est identique au mode embedded, mais avec un overlay
   return (
-    <div className="cv-import-new-overlay">
-      <div className="cv-import-new">
-        <div className="cv-import-new-header">
-          <h2>Importer un CV</h2>
-          <button onClick={onCancel} className="close-button">✕</button>
-        </div>
-        <div className="cv-import-new-content">
+    <>
+      <div className="cv-import-new-overlay">
+        <div className="cv-import-new">
+          <div className="cv-import-new-header">
+            <h2>Importer un CV</h2>
+            <button onClick={onCancel} className="close-button">✕</button>
+          </div>
+          <div className="cv-import-new-content">
           {/* Le contenu est copié depuis le mode embedded ci-dessus */}
           <div className="cv-display-panel">
             <div className="cv-display-header">
@@ -850,8 +1006,10 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+      {renderModal()}
+    </>
   );
 };
 
