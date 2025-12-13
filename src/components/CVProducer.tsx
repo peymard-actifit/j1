@@ -50,6 +50,8 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
   const [generatedPDFUrl, setGeneratedPDFUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [editingTemplateType, setEditingTemplateType] = useState<'excel' | 'word' | 'powerpoint' | null>(null);
+  const [cvPrompt, setCvPrompt] = useState<string>('');
+  const [showPromptModal, setShowPromptModal] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Initialiser la langue avec la langue de base de l'utilisateur
@@ -111,16 +113,31 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
   };
 
   const replaceTagsInContent = (content: string, fields: UserDataField[]): string => {
-    // Remplacer les tags au format {tag,version} par les valeurs correspondantes
-    const tagPattern = /\{([^,]+),(\d+)\}/g;
+    // Remplacer les tags au format {tag,version} ou {tag,IA} ou {tag} (version 1 par défaut)
+    // Pattern pour {tag,version}, {tag,IA}, ou {tag}
+    const tagPattern = /\{([^,}]+)(?:,([^}]+))?\}/g;
     
-    return content.replace(tagPattern, (match, tag, versionStr) => {
-      const version = parseInt(versionStr, 10);
+    return content.replace(tagPattern, (match, tag, versionOrIA) => {
       const field = fields.find(f => f.tag.toLowerCase() === tag.toLowerCase());
       
       if (!field) {
         return match; // Retourner le tag original si le champ n'existe pas
       }
+      
+      // Si pas de version spécifiée, utiliser version 1 par défaut
+      if (!versionOrIA) {
+        versionOrIA = '1';
+      }
+      
+      // Si c'est ,IA, on utilisera le prompt pour générer le contenu (à implémenter avec l'IA)
+      if (versionOrIA === 'IA') {
+        // Pour l'instant, on retourne un placeholder
+        // TODO: Appeler l'IA avec le prompt CV pour générer le contenu
+        return `[IA:${tag}]`; // Placeholder pour le contenu généré par IA
+      }
+      
+      // Sinon, c'est une version numérique
+      const version = parseInt(versionOrIA, 10);
       
       // Récupérer la valeur selon la langue sélectionnée
       let value = '';
@@ -239,6 +256,13 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
               >
                 {templateFile ? `📄 ${templateFile.name}` : templateType ? `📄 Template ${templateType}` : '📄 Choisir/Créer Template'}
               </button>
+              <button 
+                className="prompt-button"
+                onClick={() => setShowPromptModal(true)}
+                title="Créer/Modifier le prompt du CV"
+              >
+                📝 Prompt CV
+              </button>
             </div>
 
             <button 
@@ -250,6 +274,35 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
             </button>
           </div>
 
+          {showPromptModal && (
+            <div className="prompt-modal-overlay" onClick={() => setShowPromptModal(false)}>
+              <div className="prompt-modal" onClick={(e) => e.stopPropagation()}>
+                <div className="prompt-modal-header">
+                  <h3>Prompt du CV</h3>
+                  <button className="close-prompt-button" onClick={() => setShowPromptModal(false)}>✕</button>
+                </div>
+                <div className="prompt-modal-content">
+                  <p>Décrivez l'objectif et le contexte du CV. Ce prompt sera utilisé pour remplir les champs marqués avec ,IA dans le template.</p>
+                  <textarea
+                    className="prompt-textarea"
+                    value={cvPrompt}
+                    onChange={(e) => setCvPrompt(e.target.value)}
+                    placeholder="Exemple: CV pour un poste de développeur full-stack dans une startup tech parisienne, avec focus sur React et Node.js..."
+                    rows={10}
+                  />
+                </div>
+                <div className="prompt-modal-actions">
+                  <button className="save-prompt-button" onClick={() => setShowPromptModal(false)}>
+                    Enregistrer
+                  </button>
+                  <button className="cancel-prompt-button" onClick={() => setShowPromptModal(false)}>
+                    Annuler
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="cv-producer-info">
             {showTemplateEditor && editingTemplateType && user?.data ? (
               <TemplateEditor
@@ -259,6 +312,7 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
                 onClose={handleTemplateEditorClose}
                 fields={user.data}
                 selectedLanguage={selectedLanguage}
+                cvPrompt={cvPrompt}
               />
             ) : (
               <div className="info-section">

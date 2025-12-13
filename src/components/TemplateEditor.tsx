@@ -9,6 +9,7 @@ interface TemplateEditorProps {
   onClose: () => void;
   fields: UserDataField[];
   selectedLanguage: string; // Utilisé pour la génération future
+  cvPrompt?: string; // Prompt pour le CV
 }
 
 export const TemplateEditor = ({ 
@@ -17,7 +18,8 @@ export const TemplateEditor = ({
   onSave, 
   onClose, 
   fields,
-  selectedLanguage: _selectedLanguage // Sera utilisé pour la génération future
+  selectedLanguage: _selectedLanguage, // Sera utilisé pour la génération future
+  cvPrompt = ''
 }: TemplateEditorProps) => {
   const [content, setContent] = useState<string>('');
   const [fileName, setFileName] = useState<string>('');
@@ -128,8 +130,9 @@ export const TemplateEditor = ({
   };
 
   const generateFile = async (contentToSave: string, _name: string, fileType: string): Promise<Blob> => {
-    // Pour l'instant, on crée un fichier simple
-    // Dans une implémentation complète, on utiliserait les bibliothèques spécifiques
+    // Ajouter le prompt comme commentaire si disponible
+    const promptComment = cvPrompt ? `<!-- PROMPT CV (non imprimable): ${cvPrompt} -->` : '';
+    
     if (fileType === 'excel') {
       // Utiliser xlsx ou exceljs pour créer un vrai fichier Excel
       const XLSX = await import('xlsx');
@@ -137,7 +140,9 @@ export const TemplateEditor = ({
       const worksheet = XLSX.utils.aoa_to_sheet([
         ['Template CV'],
         [''],
-        ['Utilisez les tags {tag,version} pour référencer les champs'],
+        ['Utilisez les tags {tag,version} ou {tag,IA} pour référencer les champs'],
+        [''],
+        ...(promptComment ? [['PROMPT CV (commentaire):', cvPrompt]] : []),
         [''],
         ...contentToSave.split('\n').map(line => [line])
       ]);
@@ -151,29 +156,17 @@ export const TemplateEditor = ({
         sections: [{
           properties: {},
           children: [
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Template CV',
-                  bold: true,
-                  size: 32,
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: '',
-                }),
-              ],
-            }),
-            new Paragraph({
-              children: [
-                new TextRun({
-                  text: 'Utilisez les tags {tag,version} pour référencer les champs',
-                }),
-              ],
-            }),
+            ...(cvPrompt ? [
+              new Paragraph({
+                children: [
+                  new TextRun({
+                    text: 'PROMPT CV (non imprimable - commentaire): ' + cvPrompt,
+                    color: 'CCCCCC', // Gris clair pour indiquer que c'est un commentaire
+                    size: 8,
+                  }),
+                ],
+              }),
+            ] : []),
             ...contentToSave.split('\n').map(line => 
               new Paragraph({
                 children: [
@@ -193,11 +186,13 @@ export const TemplateEditor = ({
       const PptxGenJS = (await import('pptxgenjs')).default;
       const pptx = new PptxGenJS();
       const slide = pptx.addSlide();
-      slide.addText('Template CV', { x: 1, y: 0.5, w: 8, h: 0.5, fontSize: 32, bold: true });
-      slide.addText('Utilisez les tags {tag,version} pour référencer les champs', { x: 1, y: 1.5, w: 8, h: 0.5 });
+      // Ajouter le prompt comme note de diapositive (non visible dans la présentation)
+      if (cvPrompt) {
+        slide.addNotes(cvPrompt);
+      }
       contentToSave.split('\n').forEach((line, index) => {
         if (line.trim()) {
-          slide.addText(line, { x: 1, y: 2 + index * 0.5, w: 8, h: 0.5 });
+          slide.addText(line, { x: 1, y: 0.5 + index * 0.5, w: 8, h: 0.5 });
         }
       });
       const buffer = await pptx.write({ outputType: 'blob' });
@@ -205,7 +200,7 @@ export const TemplateEditor = ({
     }
     
     // Fallback : fichier texte
-    return new Blob([contentToSave], { type: 'text/plain' });
+    return new Blob([contentToSave + (promptComment ? '\n' + promptComment : '')], { type: 'text/plain' });
   };
 
   const getMimeType = (fileType: string): string => {
@@ -221,7 +216,7 @@ export const TemplateEditor = ({
     }
   };
 
-  const insertTag = (tag: string, version: number) => {
+  const insertTag = (tag: string, version: number | string) => {
     const tagText = `{${tag},${version}}`;
     setContent(prev => prev + tagText);
   };
@@ -245,21 +240,39 @@ export const TemplateEditor = ({
             <select
               className="tag-select"
               onChange={(e) => {
-                const [tag, version] = e.target.value.split(',');
-                if (tag && version) {
-                  insertTag(tag, parseInt(version, 10));
+                const value = e.target.value;
+                if (value) {
+                  if (value.includes(',IA')) {
+                    // Tag avec IA
+                    const tag = value.replace(',IA', '');
+                    insertTag(tag, 'IA');
+                  } else {
+                    const [tag, versionStr] = value.split(',');
+                    if (tag && versionStr) {
+                      const version = parseInt(versionStr, 10);
+                      insertTag(tag, version);
+                    } else if (tag) {
+                      // Pas de version spécifiée, utiliser version 1 par défaut
+                      insertTag(tag, 1);
+                    }
+                  }
                   e.target.value = '';
                 }
               }}
             >
               <option value="">Sélectionner un champ...</option>
               {fields.map(field => (
-                [1, 2, 3].map(version => (
-                  <option key={`${field.id}-${version}`} value={`${field.tag},${version}`}>
-                    {field.name} - Version {version} ({field.tag},{version})
+                <>
+                  <option key={`${field.id}-IA`} value={`${field.tag},IA`}>
+                    {field.name} - IA ({field.tag},IA)
                   </option>
-                ))
-              )).flat()}
+                  {[1, 2, 3].map(version => (
+                    <option key={`${field.id}-${version}`} value={`${field.tag},${version}`}>
+                      {field.name} - Version {version} ({field.tag},{version})
+                  </option>
+                  ))}
+                </>
+              ))}
             </select>
           </div>
         </div>
