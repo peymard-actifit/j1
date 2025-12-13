@@ -542,7 +542,7 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
                     className="pdf-selection-overlay"
                     onMouseUp={handleTextSelection}
                     onSelect={handleTextSelection}
-                    draggable={selectedText && selectedText.trim().length > 0}
+                    draggable={!!(selectedText && selectedText.trim().length > 0)}
                     onDragStart={(e) => {
                       if (selectedText && selectedText.trim().length > 0) {
                         handleDragStart(e, selectedText);
