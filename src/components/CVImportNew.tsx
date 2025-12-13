@@ -341,37 +341,49 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
               onMouseUp={handleTextSelection}
               onSelect={handleTextSelection}
             >
-              {fileType === 'application/pdf' && pdfTextContent ? (
-                <div 
-                  className="text-content pdf-text-content"
-                  onMouseUp={handleTextSelection}
-                  onSelect={handleTextSelection}
-                >
-                  {pdfTextContent.split('\n').map((line, idx) => {
-                    const trimmedLine = line.trim();
-                    if (trimmedLine.length === 0) {
-                      return <div key={idx} className="text-line-empty">&nbsp;</div>;
-                    }
-                    const isSelected = selectedText ? line.includes(selectedText) : false;
-                    return (
-                      <div
-                        key={idx}
-                        className={`text-line ${isSelected ? 'selected-text' : ''}`}
-                        draggable={!!selectedText && selectedText.trim().length > 0}
-                        onDragStart={(e) => {
-                          if (selectedText && selectedText.trim().length > 0) {
-                            handleDragStart(e, selectedText);
-                          }
-                        }}
-                        onMouseDown={() => {
-                          // Permettre la sélection de texte
-                        }}
-                      >
-                        {line}
-                      </div>
-                    );
-                  })}
-                </div>
+              {fileType === 'application/pdf' && fileContent ? (
+                <>
+                  {/* Affichage visuel du PDF */}
+                  <iframe
+                    src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                    className="pdf-viewer"
+                    title="CV PDF"
+                  />
+                  {/* Texte extrait pour sélection et drag & drop */}
+                  {pdfTextContent && (
+                    <div 
+                      className="text-content pdf-text-content"
+                      style={{ display: 'none' }}
+                      onMouseUp={handleTextSelection}
+                      onSelect={handleTextSelection}
+                    >
+                      {pdfTextContent.split('\n').map((line, idx) => {
+                        const trimmedLine = line.trim();
+                        if (trimmedLine.length === 0) {
+                          return <div key={idx} className="text-line-empty">&nbsp;</div>;
+                        }
+                        const isSelected = selectedText ? line.includes(selectedText) : false;
+                        return (
+                          <div
+                            key={idx}
+                            className={`text-line ${isSelected ? 'selected-text' : ''}`}
+                            draggable={!!selectedText && selectedText.trim().length > 0}
+                            onDragStart={(e) => {
+                              if (selectedText && selectedText.trim().length > 0) {
+                                handleDragStart(e, selectedText);
+                              }
+                            }}
+                            onMouseDown={() => {
+                              // Permettre la sélection de texte
+                            }}
+                          >
+                            {line}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </>
               ) : fileContent ? (
                 <div className="text-content">
                   {fileContent.split('\n').map((line, idx) => {
