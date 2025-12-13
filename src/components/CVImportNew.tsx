@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { storage } from '../utils/storage';
+import { storage, mergeDefaultFieldsWithExisting } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { FieldEditor } from './DataEditor';
 import './CVImportNew.css';
@@ -29,14 +29,25 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   useEffect(() => {
     if (user) {
       if (user.data && user.data.length > 0) {
-        setUserFields(user.data);
+        // Fusionner les nouveaux champs par défaut avec les données existantes
+        const mergedFields = mergeDefaultFieldsWithExisting(user.data);
+        setUserFields(mergedFields);
+        // Si de nouveaux champs ont été ajoutés, sauvegarder
+        if (mergedFields.length > user.data.length && setUser) {
+          const updatedUser = { ...user, data: mergedFields };
+          storage.saveUser(updatedUser).then(saved => {
+            setUser(saved);
+          }).catch(error => {
+            console.error('Error saving merged fields:', error);
+          });
+        }
       } else {
         const { initializeDefaultStructure } = require('../utils/storage');
         const defaultFields = initializeDefaultStructure();
         setUserFields(defaultFields);
       }
     }
-  }, [user]);
+  }, [user, setUser]);
 
   useEffect(() => {
     if (user && !workingLanguage) {
