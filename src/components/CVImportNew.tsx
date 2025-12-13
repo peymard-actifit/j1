@@ -343,20 +343,23 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
             >
               {fileType === 'application/pdf' && fileContent ? (
                 <>
-                  {/* Affichage visuel du PDF */}
-                  <iframe
+                  {/* Affichage visuel du PDF avec embed */}
+                  <embed
                     src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                    type="application/pdf"
                     className="pdf-viewer"
                     title="CV PDF"
                   />
-                  {/* Texte extrait pour sélection et drag & drop */}
+                  {/* Texte extrait pour sélection et drag & drop - affiché en dessous */}
                   {pdfTextContent && (
                     <div 
                       className="text-content pdf-text-content"
-                      style={{ display: 'none' }}
                       onMouseUp={handleTextSelection}
                       onSelect={handleTextSelection}
                     >
+                      <div className="pdf-text-header">
+                        <strong>Texte extrait (sélectionnable pour glisser-déposer) :</strong>
+                      </div>
                       {pdfTextContent.split('\n').map((line, idx) => {
                         const trimmedLine = line.trim();
                         if (trimmedLine.length === 0) {
