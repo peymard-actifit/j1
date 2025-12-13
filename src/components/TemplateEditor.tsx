@@ -25,8 +25,9 @@ export const TemplateEditor = ({
   const [fileName, setFileName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
-  const [editMode, setEditMode] = useState<'text' | 'wysiwyg'>('text');
+  const [editMode, setEditMode] = useState<'text' | 'office' | 'onlyoffice' | 'wysiwyg'>('text');
   const [excelData, setExcelData] = useState<string[][]>([[]]);
+  const [officeFileUrl, setOfficeFileUrl] = useState<string | null>(null);
 
   useEffect(() => {
     if (file) {
@@ -41,6 +42,11 @@ export const TemplateEditor = ({
     setIsLoading(true);
     setError('');
     try {
+      // Créer une URL temporaire pour le fichier (pour Office Online)
+      const fileUrl = URL.createObjectURL(fileToLoad);
+      setOfficeFileUrl(fileUrl);
+      
+      // Extraire aussi le contenu textuel pour le mode texte
       const fileContent = await readFileContent(fileToLoad);
       setContent(fileContent);
       setFileName(fileToLoad.name);
@@ -109,22 +115,46 @@ export const TemplateEditor = ({
     });
   };
 
-  const initializeNewFile = () => {
+  const initializeNewFile = async () => {
     if (type === 'excel') {
+      setExcelData([['']]);
       setContent('Nouveau fichier Excel\nUtilisez les tags {tag,version} pour référencer les champs.\nExemple: {nom,1}, {prenom,1}, {email,1}');
       setFileName('nouveau_template.xlsx');
+      await createEmptyFileForOffice('excel');
     } else if (type === 'word') {
       setContent('Nouveau document Word\n\nUtilisez les tags {tag,version} pour référencer les champs.\nExemple: {nom,1}, {prenom,1}, {email,1}');
       setFileName('nouveau_template.docx');
+      await createEmptyFileForOffice('word');
     } else if (type === 'powerpoint') {
       setContent('Nouvelle présentation PowerPoint\n\nUtilisez les tags {tag,version} pour référencer les champs.\nExemple: {nom,1}, {prenom,1}, {email,1}');
       setFileName('nouveau_template.pptx');
+      await createEmptyFileForOffice('powerpoint');
+    }
+  };
+
+  const createEmptyFileForOffice = async (fileType: string) => {
+    try {
+      const ext = fileType === 'word' ? 'docx' : fileType === 'excel' ? 'xlsx' : 'pptx';
+      const blob = await generateFile('', `nouveau_template.${ext}`, fileType);
+      const fileUrl = URL.createObjectURL(blob);
+      setOfficeFileUrl(fileUrl);
+    } catch (err) {
+      console.error('Erreur lors de la création du fichier pour Office:', err);
     }
   };
 
   const handleSave = async () => {
     try {
       setIsLoading(true);
+      
+      // Si on est en mode Office Online, on ne peut pas récupérer directement le contenu modifié
+      // Il faudrait utiliser l'API Microsoft Graph pour récupérer le fichier modifié
+      // Pour l'instant, on sauvegarde le contenu texte
+      if (editMode === 'office') {
+        setError('Note: En mode Office Online, vous devez télécharger le fichier depuis Office Online, puis le recharger ici pour sauvegarder.');
+        // On sauvegarde quand même le contenu texte actuel
+      }
+      
       const blob = await generateFile(content, fileName, type);
       const savedFile = new File([blob], fileName, { type: getMimeType(type) });
       onSave(savedFile);
@@ -285,10 +315,23 @@ export const TemplateEditor = ({
         <div className="header-right-section">
           <button 
             className="mode-toggle-button" 
-            onClick={() => setEditMode(editMode === 'text' ? 'wysiwyg' : 'text')}
-            title={editMode === 'text' ? 'Passer en mode WYSIWYG' : 'Passer en mode texte'}
+            onClick={() => {
+              if (editMode === 'text') {
+                setEditMode('office');
+              } else if (editMode === 'office') {
+                setEditMode('onlyoffice');
+              } else if (editMode === 'onlyoffice') {
+                setEditMode('wysiwyg');
+              } else {
+                setEditMode('text');
+              }
+            }}
+            title="Basculer entre les modes d'édition (Texte → Office Online → OnlyOffice → WYSIWYG)"
           >
-            {editMode === 'text' ? '📝 Mode WYSIWYG' : '📄 Mode texte'}
+            {editMode === 'text' && '📝 Office Online'}
+            {editMode === 'office' && '🔧 OnlyOffice'}
+            {editMode === 'onlyoffice' && '✏️ WYSIWYG'}
+            {editMode === 'wysiwyg' && '📄 Mode texte'}
           </button>
           <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName} title="Sauvegarder sous">
             💾 Sauvegarder sous
@@ -301,6 +344,77 @@ export const TemplateEditor = ({
 
         {isLoading ? (
           <div className="editor-loading">Chargement...</div>
+        ) : editMode === 'office' && officeFileUrl ? (
+          <div className="office-online-editor">
+            {type === 'word' ? (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(officeFileUrl)}`}
+                className="office-iframe"
+                title="Éditeur Word Online"
+                allowFullScreen
+              />
+            ) : type === 'excel' ? (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(officeFileUrl)}`}
+                className="office-iframe"
+                title="Éditeur Excel Online"
+                allowFullScreen
+              />
+            ) : type === 'powerpoint' ? (
+              <iframe
+                src={`https://view.officeapps.live.com/op/embed.aspx?src=${encodeURIComponent(officeFileUrl)}`}
+                className="office-iframe"
+                title="Éditeur PowerPoint Online"
+                allowFullScreen
+              />
+            ) : null}
+            <div className="office-editor-note">
+              <p><strong>Note :</strong> Office Online nécessite que le fichier soit accessible publiquement. Pour une utilisation locale, utilisez OnlyOffice ou le mode texte.</p>
+              <p>Pour utiliser Office Online avec vos fichiers locaux, vous devez :</p>
+              <ul>
+                <li>Héberger le fichier sur un serveur accessible publiquement (OneDrive, SharePoint, etc.)</li>
+                <li>Ou utiliser OnlyOffice qui fonctionne avec des fichiers locaux</li>
+              </ul>
+            </div>
+          </div>
+        ) : editMode === 'onlyoffice' ? (
+          <div className="onlyoffice-editor">
+            <div className="onlyoffice-note">
+              <p><strong>OnlyOffice</strong> est une solution open-source compatible avec Microsoft Office.</p>
+              <p>Pour utiliser OnlyOffice, vous devez :</p>
+              <ol>
+                <li>Installer et configurer un serveur OnlyOffice (Document Server)</li>
+                <li>Configurer l'URL du serveur dans les paramètres de l'application</li>
+                <li>Le serveur OnlyOffice doit être accessible depuis votre navigateur</li>
+              </ol>
+              <p>Alternative : Utilisez le mode texte ou Office Online si vous avez un compte Microsoft 365.</p>
+            </div>
+            {/* Intégration OnlyOffice nécessite un serveur configuré */}
+            {import.meta.env.VITE_ONLYOFFICE_SERVER_URL ? (
+              <div className="onlyoffice-container">
+                <div id="onlyoffice-editor" className="onlyoffice-iframe-container">
+                  <p>Chargement de OnlyOffice...</p>
+                  <p><strong>Note :</strong> OnlyOffice nécessite un serveur Document Server configuré et accessible.</p>
+                  <p>Le serveur doit être configuré avec l'URL : {import.meta.env.VITE_ONLYOFFICE_SERVER_URL}</p>
+                </div>
+                <script
+                  type="text/javascript"
+                  src={`${import.meta.env.VITE_ONLYOFFICE_SERVER_URL}/web-apps/apps/api/documents/api.js`}
+                />
+              </div>
+            ) : (
+              <div className="onlyoffice-placeholder">
+                <p><strong>OnlyOffice n'est pas configuré.</strong></p>
+                <p>Pour utiliser OnlyOffice :</p>
+                <ol>
+                  <li>Installez un serveur OnlyOffice Document Server</li>
+                  <li>Ajoutez <code>VITE_ONLYOFFICE_SERVER_URL</code> dans votre fichier <code>.env</code></li>
+                  <li>Redémarrez l'application</li>
+                </ol>
+                <p><strong>Alternative :</strong> Utilisez Office Online (mode précédent) ou le mode texte pour éditer vos templates.</p>
+              </div>
+            )}
+          </div>
         ) : editMode === 'wysiwyg' ? (
           type === 'word' ? (
             <div className="wysiwyg-editor">

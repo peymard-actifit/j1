@@ -291,3 +291,111 @@
   border-color: #667eea;
 }
 
+/* Office Online Editor */
+.office-online-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.office-iframe {
+  width: 100%;
+  flex: 1;
+  min-height: 600px;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+}
+
+.office-editor-note {
+  padding: 1rem;
+  background: #e3f2fd;
+  border-radius: 8px;
+  border-left: 4px solid #2196f3;
+  font-size: 0.9rem;
+}
+
+.office-editor-note p {
+  margin: 0.5rem 0;
+  color: #333;
+}
+
+.office-editor-note ul {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.office-editor-note li {
+  margin: 0.25rem 0;
+  color: #555;
+}
+
+/* OnlyOffice Editor */
+.onlyoffice-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.onlyoffice-note {
+  padding: 1rem;
+  background: #fff3cd;
+  border-radius: 8px;
+  border-left: 4px solid #ffc107;
+  font-size: 0.9rem;
+}
+
+.onlyoffice-note p {
+  margin: 0.5rem 0;
+  color: #333;
+}
+
+.onlyoffice-note ol {
+  margin: 0.5rem 0;
+  padding-left: 1.5rem;
+}
+
+.onlyoffice-note li {
+  margin: 0.25rem 0;
+  color: #555;
+}
+
+.onlyoffice-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  height: 100%;
+}
+
+.onlyoffice-iframe-container {
+  flex: 1;
+  min-height: 600px;
+  padding: 2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  background: #f9fafb;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
+}
+
+.onlyoffice-iframe-container p {
+  margin: 0.5rem 0;
+  color: #666;
+}
+
+.onlyoffice-placeholder {
+  padding: 2rem;
+  text-align: center;
+  background: #f5f5f5;
+  border-radius: 8px;
+  color: #666;
+}
+
+.onlyoffice-placeholder p {
+  margin: 0.5rem 0;
+}
+
