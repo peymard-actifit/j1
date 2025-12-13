@@ -167,5 +167,15 @@ export const api = {
     });
     return res.json();
   },
+
+  // Extract PDF text using documint
+  async extractPdfText(fileContent: string) {
+    const res = await fetch(`${API_BASE}/extract-pdf-text`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ fileContent }),
+    });
+    return res.json();
+  },
 };
 
