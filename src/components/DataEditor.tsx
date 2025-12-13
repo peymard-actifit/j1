@@ -10,9 +10,13 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   const { user, setUser } = useAuth();
   const [fields, setFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
   const [showAddField, setShowAddField] = useState(false);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
   const [filterText, setFilterText] = useState('');
+  const [fieldsListWidth, setFieldsListWidth] = useState(300);
+  const [isResizing, setIsResizing] = useState(false);
   // Langue de travail (peut être différente de la baseLanguage de chaque champ)
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
 
@@ -144,24 +148,96 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
     }
   };
 
-  const handleDragStart = (index: number) => {
-    setDraggedIndex(index);
+  const handleFieldClick = (field: UserDataField, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Sélection multiple avec Ctrl/Cmd
+      const newSelected = new Set(selectedFields);
+      if (newSelected.has(field.id)) {
+        newSelected.delete(field.id);
+      } else {
+        newSelected.add(field.id);
+      }
+      setSelectedFields(newSelected);
+      if (newSelected.size === 1) {
+        setSelectedField(field);
+      } else if (newSelected.size === 0) {
+        setSelectedField(null);
+      }
+    } else {
+      // Sélection simple
+      setSelectedField(field);
+      setSelectedFields(new Set([field.id]));
+    }
+  };
+
+  const handleDragStart = (index: number, e: React.DragEvent) => {
+    if (selectedFields.size > 1 && selectedFields.has(fields[index].id)) {
+      // Drag en groupe
+      const indices = fields
+        .map((f, i) => selectedFields.has(f.id) ? i : -1)
+        .filter(i => i !== -1)
+        .sort((a, b) => a - b);
+      setDraggedIndices(indices);
+      setDraggedIndex(null);
+      e.dataTransfer.effectAllowed = 'move';
+    } else {
+      // Drag unitaire
+      setDraggedIndex(index);
+      setDraggedIndices([]);
+      setSelectedFields(new Set([fields[index].id]));
+    }
   };
 
   const handleDragOver = (e: React.DragEvent, index: number) => {
     e.preventDefault();
-    if (draggedIndex === null || draggedIndex === index) return;
+    e.dataTransfer.dropEffect = 'move';
     
-    const newFields = [...fields];
-    const draggedItem = newFields[draggedIndex];
-    newFields.splice(draggedIndex, 1);
-    newFields.splice(index, 0, draggedItem);
-    setFields(newFields);
-    setDraggedIndex(index);
+    if (draggedIndices.length > 0) {
+      // Déplacement en groupe
+      const targetIndex = index;
+      const sourceIndices = [...draggedIndices].sort((a, b) => a - b);
+      const firstSourceIndex = sourceIndices[0];
+      
+      if (targetIndex === firstSourceIndex || sourceIndices.includes(targetIndex)) {
+        return;
+      }
+      
+      const newFields = [...fields];
+      const draggedItems = sourceIndices.map(i => newFields[i]);
+      
+      // Retirer les éléments de leur position actuelle (en ordre inverse pour éviter les problèmes d'index)
+      for (let i = sourceIndices.length - 1; i >= 0; i--) {
+        newFields.splice(sourceIndices[i], 1);
+      }
+      
+      // Calculer la nouvelle position
+      let insertIndex = targetIndex;
+      for (const sourceIndex of sourceIndices) {
+        if (sourceIndex < targetIndex) {
+          insertIndex--;
+        }
+      }
+      
+      // Insérer les éléments à la nouvelle position
+      newFields.splice(insertIndex, 0, ...draggedItems);
+      setFields(newFields);
+      
+      // Mettre à jour les indices
+      const newIndices = draggedItems.map((_, i) => insertIndex + i);
+      setDraggedIndices(newIndices);
+    } else if (draggedIndex !== null && draggedIndex !== index) {
+      // Déplacement unitaire
+      const newFields = [...fields];
+      const draggedItem = newFields[draggedIndex];
+      newFields.splice(draggedIndex, 1);
+      newFields.splice(index, 0, draggedItem);
+      setFields(newFields);
+      setDraggedIndex(index);
+    }
   };
 
   const handleDragEnd = async () => {
-    if (draggedIndex !== null && user && setUser) {
+    if ((draggedIndex !== null || draggedIndices.length > 0) && user && setUser) {
       try {
         const updatedUser = { ...user, data: fields };
         const savedUser = await storage.saveUser(updatedUser);
@@ -171,7 +247,36 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
       }
     }
     setDraggedIndex(null);
+    setDraggedIndices([]);
   };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleResize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = e.clientX;
+      if (newWidth >= 200 && newWidth <= 600) {
+        setFieldsListWidth(newWidth);
+      }
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResize);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
 
   const handleDeleteField = async (fieldId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer ce champ ?')) {
@@ -294,7 +399,7 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
         </div>
 
         <div className="data-editor-content">
-          <div className="fields-list">
+          <div className="fields-list" style={{ width: `${fieldsListWidth}px` }}>
             <div className="fields-list-header">
               <input
                 type="text"
@@ -306,6 +411,15 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               <button onClick={() => setShowAddField(true)} className="add-field-button">
                 + Champ
               </button>
+              {selectedFields.size > 1 && (
+                <button 
+                  onClick={() => setSelectedFields(new Set())} 
+                  className="clear-selection-button"
+                  title="Désélectionner"
+                >
+                  ✕ {selectedFields.size}
+                </button>
+              )}
             </div>
             {showAddField && (
               <div className="add-field-form">
@@ -346,13 +460,16 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
                     }
                   }
                   
+                  const isSelected = selectedFields.has(field.id);
+                  const isDragging = draggedIndex === realIndex || draggedIndices.includes(realIndex);
+                  
                   return (
                     <div
                       key={field.id}
-                      className={`field-item ${selectedField?.id === field.id ? 'selected' : ''} ${draggedIndex === realIndex ? 'dragging' : ''}`}
-                      onClick={() => setSelectedField(field)}
+                      className={`field-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${selectedFields.size > 1 && isSelected ? 'multi-selected' : ''}`}
+                      onClick={(e) => handleFieldClick(field, e)}
                       draggable
-                      onDragStart={() => handleDragStart(realIndex)}
+                      onDragStart={(e) => handleDragStart(realIndex, e)}
                       onDragOver={(e) => handleDragOver(e, realIndex)}
                       onDragEnd={handleDragEnd}
                     >
@@ -379,6 +496,12 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
               )}
             </div>
           </div>
+          
+          <div 
+            className="fields-list-resizer"
+            onMouseDown={handleResizeStart}
+            style={{ cursor: 'col-resize' }}
+          />
 
           <div className="field-editor">
             {selectedField ? (

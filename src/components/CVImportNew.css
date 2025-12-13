@@ -519,16 +519,35 @@
   flex: 1;
   display: flex;
   overflow: hidden;
+  gap: 0;
 }
 
 .fields-list {
-  width: auto;
-  min-width: 120px;
-  max-width: 200px;
+  width: 200px;
+  min-width: 150px;
+  max-width: 500px;
   border-right: 1px solid #e0e0e0;
   overflow-y: auto;
   background: #f9fafb;
   flex-shrink: 0;
+  position: relative;
+}
+
+.fields-list-resizer {
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.fields-list-resizer:hover {
+  background: #667eea;
+}
+
+.fields-list-resizer:active {
+  background: #667eea;
 }
 
 .field-item {
@@ -536,6 +555,10 @@
   border-bottom: 1px solid #f0f0f0;
   cursor: pointer;
   transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
 }
 
 .field-item:hover {
@@ -545,6 +568,31 @@
 .field-item.selected {
   background: #e3f2fd;
   border-left: 4px solid #667eea;
+}
+
+.field-item.dragging {
+  opacity: 0.5;
+}
+
+.field-item.multi-selected {
+  background: #e3f2fd;
+  border-left: 4px solid #2196f3;
+}
+
+.field-item.selected.multi-selected {
+  background: #bbdefb;
+}
+
+.drag-handle {
+  cursor: grab;
+  color: #999;
+  font-size: 1.2rem;
+  user-select: none;
+  flex-shrink: 0;
+}
+
+.drag-handle:active {
+  cursor: grabbing;
 }
 
 .field-item-content {

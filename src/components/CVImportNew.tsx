@@ -19,6 +19,11 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
   const [extractingPdfText, setExtractingPdfText] = useState(false);
   const [userFields, setUserFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
+  const [selectedFields, setSelectedFields] = useState<Set<string>>(new Set());
+  const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
+  const [draggedIndices, setDraggedIndices] = useState<number[]>([]);
+  const [fieldsListWidth, setFieldsListWidth] = useState(200);
+  const [isResizing, setIsResizing] = useState(false);
   const [workingLanguage, setWorkingLanguage] = useState<string>(user?.baseLanguage || 'fr');
   const [selectedText, setSelectedText] = useState<string>('');
   const cvDisplayRef = useRef<HTMLDivElement>(null);
@@ -195,6 +200,136 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
     e.dataTransfer.setData('text/plain', text);
     e.dataTransfer.effectAllowed = 'copy';
   };
+
+  const handleFieldClick = (field: UserDataField, e: React.MouseEvent) => {
+    if (e.ctrlKey || e.metaKey) {
+      // Sélection multiple avec Ctrl/Cmd
+      const newSelected = new Set(selectedFields);
+      if (newSelected.has(field.id)) {
+        newSelected.delete(field.id);
+      } else {
+        newSelected.add(field.id);
+      }
+      setSelectedFields(newSelected);
+      if (newSelected.size === 1) {
+        setSelectedField(field);
+      } else if (newSelected.size === 0) {
+        setSelectedField(null);
+      }
+    } else {
+      // Sélection simple
+      setSelectedField(field);
+      setSelectedFields(new Set([field.id]));
+    }
+  };
+
+  const handleFieldDragStart = (index: number, e: React.DragEvent) => {
+    if (selectedFields.size > 1 && selectedFields.has(userFields[index].id)) {
+      // Drag en groupe
+      const indices = userFields
+        .map((f, i) => selectedFields.has(f.id) ? i : -1)
+        .filter(i => i !== -1)
+        .sort((a, b) => a - b);
+      setDraggedIndices(indices);
+      setDraggedIndex(null);
+      e.dataTransfer.effectAllowed = 'move';
+    } else {
+      // Drag unitaire
+      setDraggedIndex(index);
+      setDraggedIndices([]);
+      setSelectedFields(new Set([userFields[index].id]));
+    }
+  };
+
+  const handleFieldDragOver = (e: React.DragEvent, index: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    
+    if (draggedIndices.length > 0) {
+      // Déplacement en groupe
+      const targetIndex = index;
+      const sourceIndices = [...draggedIndices].sort((a, b) => a - b);
+      const firstSourceIndex = sourceIndices[0];
+      
+      if (targetIndex === firstSourceIndex || sourceIndices.includes(targetIndex)) {
+        return;
+      }
+      
+      const newFields = [...userFields];
+      const draggedItems = sourceIndices.map(i => newFields[i]);
+      
+      // Retirer les éléments de leur position actuelle (en ordre inverse)
+      for (let i = sourceIndices.length - 1; i >= 0; i--) {
+        newFields.splice(sourceIndices[i], 1);
+      }
+      
+      // Calculer la nouvelle position
+      let insertIndex = targetIndex;
+      for (const sourceIndex of sourceIndices) {
+        if (sourceIndex < targetIndex) {
+          insertIndex--;
+        }
+      }
+      
+      // Insérer les éléments à la nouvelle position
+      newFields.splice(insertIndex, 0, ...draggedItems);
+      setUserFields(newFields);
+      
+      // Mettre à jour les indices
+      const newIndices = draggedItems.map((_, i) => insertIndex + i);
+      setDraggedIndices(newIndices);
+    } else if (draggedIndex !== null && draggedIndex !== index) {
+      // Déplacement unitaire
+      const newFields = [...userFields];
+      const draggedItem = newFields[draggedIndex];
+      newFields.splice(draggedIndex, 1);
+      newFields.splice(index, 0, draggedItem);
+      setUserFields(newFields);
+      setDraggedIndex(index);
+    }
+  };
+
+  const handleFieldDragEnd = async () => {
+    if ((draggedIndex !== null || draggedIndices.length > 0) && user && setUser) {
+      try {
+        const updatedUser = { ...user, data: userFields };
+        const savedUser = await storage.saveUser(updatedUser);
+        setUser(savedUser);
+      } catch (error) {
+        console.error('Error saving field order:', error);
+      }
+    }
+    setDraggedIndex(null);
+    setDraggedIndices([]);
+  };
+
+  const handleResizeStart = (e: React.MouseEvent) => {
+    setIsResizing(true);
+    e.preventDefault();
+  };
+
+  useEffect(() => {
+    const handleResize = (e: MouseEvent) => {
+      if (!isResizing) return;
+      const newWidth = e.clientX;
+      if (newWidth >= 150 && newWidth <= 500) {
+        setFieldsListWidth(newWidth);
+      }
+    };
+
+    const handleResizeEnd = () => {
+      setIsResizing(false);
+    };
+
+    if (isResizing) {
+      document.addEventListener('mousemove', handleResize);
+      document.addEventListener('mouseup', handleResizeEnd);
+      return () => {
+        document.removeEventListener('mousemove', handleResize);
+        document.removeEventListener('mouseup', handleResizeEnd);
+      };
+    }
+  }, [isResizing]);
 
   const handleDrop = async (field: UserDataField, version: 1 | 2 | 3, language: string, e: React.DragEvent) => {
     e.preventDefault();
@@ -484,7 +619,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
             </div>
 
             <div className="fields-list-container">
-              <div className="fields-list">
+              <div className="fields-list" style={{ width: `${fieldsListWidth}px` }}>
                 <div className="fields-list-header-import">
                   <button 
                     onClick={() => setShowAddField(!showAddField)} 
@@ -523,19 +658,35 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                     </div>
                   </div>
                 )}
-                {userFields.map((field) => (
-                  <div
-                    key={field.id}
-                    className={`field-item ${selectedField?.id === field.id ? 'selected' : ''}`}
-                    onClick={() => setSelectedField(field)}
-                  >
-                    <div className="field-item-content">
-                      <span className="field-name">{field.name}</span>
-                      <span className="field-tag">{field.tag}</span>
+                {userFields.map((field, index) => {
+                  const isSelected = selectedFields.has(field.id);
+                  const isDragging = draggedIndex === index || draggedIndices.includes(index);
+                  
+                  return (
+                    <div
+                      key={field.id}
+                      className={`field-item ${isSelected ? 'selected' : ''} ${isDragging ? 'dragging' : ''} ${selectedFields.size > 1 && isSelected ? 'multi-selected' : ''}`}
+                      onClick={(e) => handleFieldClick(field, e)}
+                      draggable
+                      onDragStart={(e) => handleFieldDragStart(index, e)}
+                      onDragOver={(e) => handleFieldDragOver(e, index)}
+                      onDragEnd={handleFieldDragEnd}
+                    >
+                      <span className="drag-handle">☰</span>
+                      <div className="field-item-content">
+                        <span className="field-name">{field.name}</span>
+                        <span className="field-tag">{field.tag}</span>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
+              
+              <div 
+                className="fields-list-resizer"
+                onMouseDown={handleResizeStart}
+                style={{ cursor: 'col-resize' }}
+              />
 
               {selectedField && (
                 <div className="field-editor-container">
