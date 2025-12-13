@@ -64,6 +64,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
           setExtractingPdfText(true);
           try {
             // Utiliser l'API documint pour extraire le texte du PDF
+            const { api } = await import('../utils/api');
             const result = await api.extractPdfText(content);
             if (result.success && result.text) {
               setPdfTextContent(result.text);
