@@ -20,7 +20,10 @@
   flex: 1;
 }
 
-.nav-import-button {
+.nav-action-button {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   padding: 0.5rem 1rem;
   background: rgba(255, 255, 255, 0.2);
   color: white;
@@ -28,13 +31,21 @@
   border-radius: 6px;
   cursor: pointer;
   font-weight: 600;
-  font-size: 0.95rem;
+  font-size: 0.9rem;
   transition: background 0.3s;
   white-space: nowrap;
 }
 
-.nav-import-button:hover {
+.nav-action-button:hover {
   background: rgba(255, 255, 255, 0.3);
+}
+
+.nav-action-icon {
+  font-size: 1.2rem;
+}
+
+.nav-action-name {
+  font-size: 0.9rem;
 }
 
 .nav-modules {

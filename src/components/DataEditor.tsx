@@ -12,9 +12,13 @@ interface DataEditorProps {
   onClose?: () => void;
   showImport?: boolean;
   onImportClose?: () => void;
+  showProduce?: boolean;
+  onProduceClose?: () => void;
 }
 
-export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataEditorProps) => {
+export const DataEditor = ({ onClose, showImport = false, onImportClose, showProduce = false, onProduceClose }: DataEditorProps) => {
+  // Ne pas afficher l'éditeur normal si on est en mode produce
+  const shouldShowNormalEditor = !showProduce;
   const { user, setUser } = useAuth();
   const [fields, setFields] = useState<UserDataField[]>([]);
   const [selectedField, setSelectedField] = useState<UserDataField | null>(null);
@@ -465,7 +469,7 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
   };
 
   return (
-    <div className={`data-editor-container ${showImport ? 'with-import' : ''}`}>
+    <div className={`data-editor-container ${showImport ? 'with-import' : ''} ${showProduce ? 'with-produce' : ''}`}>
       {showImport && (
         <>
           <div 
@@ -493,6 +497,72 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
           />
         </>
       )}
+      {showProduce && (
+        <>
+          <div className="data-editor-fields-panel">
+            {/* Panneau gauche : Liste des champs et versions (même contenu que fields-list mais dans un panneau séparé) */}
+            <div className="data-editor-fields-panel-content">
+              <div className="fields-list" style={{ width: `${fieldsListWidth}px` }}>
+                <div className="fields-list-header">
+                  <input
+                    type="text"
+                    placeholder="Filtrer les champs..."
+                    value={filterText}
+                    onChange={(e) => setFilterText(e.target.value)}
+                    className="field-filter-input"
+                  />
+                </div>
+                <div className="fields-items">
+                  {filteredFields.length === 0 ? (
+                    <div className="no-fields-message">
+                      {filterText ? 'Aucun champ ne correspond au filtre' : 'Aucun champ'}
+                    </div>
+                  ) : (
+                    filteredFields.map((field) => (
+                      <div
+                        key={field.id}
+                        className={`field-item ${selectedField?.id === field.id ? 'selected' : ''}`}
+                        onClick={(e) => handleFieldClick(field, e)}
+                      >
+                        <span className="field-name">{field.name}</span>
+                        <span className="field-tag">({field.tag})</span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+              <div
+                className="fields-list-resizer"
+                onMouseDown={handleResizeStart}
+                style={{ cursor: 'col-resize' }}
+              />
+              {selectedField && (
+                <div className="field-editor">
+                  <FieldEditor
+                    field={selectedField}
+                    onSave={handleSaveField}
+                    workingLanguage={workingLanguage}
+                    onChangeWorkingLanguage={handleChangeWorkingLanguage}
+                    userBaseLanguage={user?.baseLanguage || 'fr'}
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+          <div
+            className="data-editor-produce-resizer"
+            onMouseDown={handleImportResizeStart}
+            style={{ cursor: 'col-resize' }}
+          />
+          <div className="data-editor-produce-panel">
+            <CVProducer 
+              onCancel={onProduceClose || (() => {})}
+              embeddedMode={true}
+            />
+          </div>
+        </>
+      )}
+      {shouldShowNormalEditor && (
       <div className="data-editor">
         <div className="data-editor-header">
           <h2>Édition des données CV</h2>
@@ -630,6 +700,7 @@ export const DataEditor = ({ onClose, showImport = false, onImportClose }: DataE
           </div>
         </div>
       </div>
+      )}
     </div>
   );
 };

@@ -10,6 +10,53 @@
   /* Quand l'import est ouvert, on divise en deux */
 }
 
+.data-editor-container.with-produce {
+  /* Quand la production est ouverte, on divise en deux */
+}
+
+.data-editor-fields-panel {
+  width: 50%;
+  min-width: 300px;
+  max-width: 70%;
+  display: flex;
+  flex-direction: column;
+  background: white;
+  overflow: hidden;
+  flex-shrink: 0;
+  border-right: 1px solid #e0e0e0;
+}
+
+.data-editor-fields-panel-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+}
+
+.data-editor-produce-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+.data-editor-produce-resizer {
+  width: 4px;
+  background: transparent;
+  cursor: col-resize;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.data-editor-produce-resizer:hover {
+  background: #667eea;
+}
+
+.data-editor-produce-resizer:active {
+  background: #667eea;
+}
+
 .data-editor-import-panel {
   width: 50%;
   min-width: 300px;
