@@ -211,7 +211,7 @@ export const TemplateEditor = ({
         <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
       </div>
       <div className="template-editor-content-embedded">
-          <div className="editor-toolbar">
+        <div className="editor-toolbar">
             <div className="toolbar-section">
               <label>Nom du fichier:</label>
               <input
@@ -244,14 +244,14 @@ export const TemplateEditor = ({
                 )).flat()}
               </select>
             </div>
-          </div>
+        </div>
 
-          {error && <div className="editor-error">{error}</div>}
+        {error && <div className="editor-error">{error}</div>}
 
-          {isLoading ? (
-            <div className="editor-loading">Chargement...</div>
-          ) : (
-            <div className="editor-main">
+        {isLoading ? (
+          <div className="editor-loading">Chargement...</div>
+        ) : (
+          <div className="editor-main">
               <div className="editor-info">
                 <p><strong>Instructions:</strong></p>
                 <ul>
@@ -273,14 +273,13 @@ export const TemplateEditor = ({
             </div>
           )}
 
-          <div className="editor-actions">
-            <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName}>
-              💾 Sauvegarder
-            </button>
-            <button className="cancel-button" onClick={onClose}>
-              Annuler
-            </button>
-          </div>
+        <div className="editor-actions">
+          <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName}>
+            💾 Sauvegarder
+          </button>
+          <button className="cancel-button" onClick={onClose}>
+            Annuler
+          </button>
         </div>
       </div>
     </div>
