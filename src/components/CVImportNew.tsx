@@ -350,11 +350,8 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                             handleDragStart(e, selectedText);
                           }
                         }}
-                        onMouseDown={(e) => {
+                        onMouseDown={() => {
                           // Permettre la sélection de texte
-                          if (selectedText && selectedText.trim().length > 0) {
-                            // Ne pas empêcher la sélection
-                          }
                         }}
                       >
                         {line || '\u00A0'}
