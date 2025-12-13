@@ -1,0 +1,327 @@
+.cv-import-new-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.cv-import-new {
+  background: white;
+  border-radius: 15px;
+  width: 95%;
+  max-width: 95%;
+  height: 90vh;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+.cv-import-new-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 2rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cv-import-new-header h2 {
+  margin: 0;
+  color: #333;
+}
+
+.close-button {
+  background: #f44336;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 1rem;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.close-button:hover {
+  background: #d32f2f;
+}
+
+.cv-import-new-content {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  gap: 1rem;
+  padding: 1rem;
+}
+
+/* Partie gauche : Affichage du CV */
+.cv-display-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f9fafb;
+}
+
+.cv-display-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: white;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.cv-display-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.file-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.file-input {
+  display: none;
+}
+
+.file-input-label {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.file-input-label:hover {
+  background: #5568d3;
+}
+
+.import-button {
+  padding: 0.5rem 1rem;
+  background: #4caf50;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: background 0.2s;
+}
+
+.import-button:hover {
+  background: #45a049;
+}
+
+.analysis-progress {
+  padding: 0.75rem 1rem;
+  background: #e3f2fd;
+  border-bottom: 1px solid #e0e0e0;
+  color: #1976d2;
+  font-size: 0.9rem;
+}
+
+.cv-display-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  background: white;
+  position: relative;
+}
+
+.pdf-viewer {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+.text-content {
+  font-family: 'Courier New', monospace;
+  font-size: 0.9rem;
+  line-height: 1.6;
+  color: #333;
+  user-select: text;
+}
+
+.text-line {
+  padding: 0.25rem 0;
+  cursor: text;
+  transition: background 0.2s;
+}
+
+.text-line:hover {
+  background: #f0f0f0;
+}
+
+.text-line::selection {
+  background: #667eea;
+  color: white;
+}
+
+.no-cv-message {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: #999;
+  text-align: center;
+}
+
+.no-cv-message .hint {
+  font-size: 0.85rem;
+  margin-top: 0.5rem;
+  color: #bbb;
+}
+
+.selected-text-info {
+  padding: 0.75rem 1rem;
+  background: #e3f2fd;
+  border-top: 1px solid #e0e0e0;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: #1976d2;
+}
+
+.clear-selection {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 1.2rem;
+  padding: 0;
+  margin-left: auto;
+}
+
+.clear-selection:hover {
+  color: #d32f2f;
+}
+
+/* Partie droite : Formulaire d'édition */
+.fields-editor-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+  background: white;
+}
+
+.fields-editor-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f9fafb;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.fields-editor-header h3 {
+  margin: 0;
+  color: #333;
+}
+
+.language-selector {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.language-selector label {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.9rem;
+}
+
+.language-select {
+  padding: 0.5rem 0.75rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.language-select:focus {
+  outline: none;
+  border-color: #667eea;
+}
+
+.fields-list-container {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+.fields-list {
+  width: 300px;
+  border-right: 1px solid #e0e0e0;
+  overflow-y: auto;
+  background: #f9fafb;
+}
+
+.field-item {
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #f0f0f0;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.field-item:hover {
+  background: #f5f5f5;
+}
+
+.field-item.selected {
+  background: #e3f2fd;
+  border-left: 4px solid #667eea;
+}
+
+.field-item-content {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.field-name {
+  font-weight: 600;
+  color: #333;
+  font-size: 0.95rem;
+}
+
+.field-tag {
+  font-size: 0.75rem;
+  color: #666;
+  background: #e0e0e0;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  display: inline-block;
+  width: fit-content;
+}
+
+.field-editor-container {
+  flex: 1;
+  overflow-y: auto;
+  background: white;
+}
+
+/* Styles pour les zones de drop dans FieldEditor */
+.version-drop-zone {
+  position: relative;
+}
+
+.version-drop-zone.drag-over {
+  background: #e3f2fd;
+  border: 2px dashed #667eea;
+}
+

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { BrowserRouter as Router } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { WelcomeScreen } from './components/WelcomeScreen';
-import { CVImport } from './components/CVImport';
+import { CVImportNew } from './components/CVImportNew';
 import { LoginScreen } from './components/LoginScreen';
 import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
@@ -202,7 +202,7 @@ const AppContent = () => {
         )}
 
         {showCVUpload && (
-          <CVImport
+          <CVImportNew
             onComplete={() => {
               setShowCVUpload(false);
               setShowDataEditor(true);

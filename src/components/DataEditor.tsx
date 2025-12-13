@@ -402,18 +402,22 @@ export const DataEditor = ({ onClose }: { onClose: () => void }) => {
   );
 };
 
-const FieldEditor = ({
+export const FieldEditor = ({
   field,
   onSave,
   workingLanguage,
   onChangeWorkingLanguage,
   userBaseLanguage,
+  onDrop,
+  onDragOver,
 }: {
   field: UserDataField;
   onSave: (field: UserDataField) => void;
   workingLanguage: string;
   onChangeWorkingLanguage: (lang: string) => void;
   userBaseLanguage: string;
+  onDrop?: (version: 1 | 2 | 3, language: string, e: React.DragEvent) => void;
+  onDragOver?: (e: React.DragEvent) => void;
 }) => {
   const [name, setName] = useState(field.name);
   const [tag, setTag] = useState(field.tag);
@@ -841,7 +845,11 @@ const FieldEditor = ({
                     return (
                       <div key={version} className="language-version-input-inline">
                         <label className="version-label">Version {version}</label>
-                        <div className="version-input-wrapper">
+                        <div 
+                          className="version-input-wrapper"
+                          onDragOver={onDragOver}
+                          onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, language, e) : undefined}
+                        >
                           <textarea
                             value={value}
                             onChange={(e) => {
@@ -910,7 +918,11 @@ const FieldEditor = ({
                     return (
                       <div key={version} className="language-version-input-inline">
                         <label className="version-label">Version {version}</label>
-                        <div className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}>
+                        <div 
+                          className={`version-input-wrapper ${isManuallyModified ? 'manually-modified' : ''}`}
+                          onDragOver={onDragOver}
+                          onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, targetLang, e) : undefined}
+                        >
                           <textarea
                             value={currentValue}
                             onChange={async (e) => {

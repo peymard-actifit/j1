@@ -598,7 +598,7 @@ export const CVImport = ({ onComplete, onCancel }: CVImportProps) => {
                   className="button-primary"
                   disabled={!file || analyzing}
                 >
-                  {analyzing ? 'Analyse en cours...' : 'Analyser avec IA'}
+                  {analyzing ? 'Import en cours...' : 'Importer le CV'}
                 </button>
               </div>
             </div>
