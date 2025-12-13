@@ -1173,18 +1173,100 @@ export const FieldEditor = ({
                           onDragOver={onDragOver}
                           onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, language, e) : undefined}
                         >
-                          <textarea
-                            value={value}
-                            onChange={(e) => {
-                              const newValue = e.target.value;
-                              // Mettre à jour immédiatement le state pour l'affichage
-                              if (version === 1) setVersion1Value(newValue);
-                              else if (version === 2) setVersion2Value(newValue);
-                              else setVersion3Value(newValue);
-                            }}
-                            rows={2}
-                            placeholder={`Version ${version}`}
-                          />
+                          {(() => {
+                            const versionData = field.aiVersions.find(v => v.version === version);
+                            const hasImage = versionData?.imageUrl;
+                            
+                            if (hasImage) {
+                              return (
+                                <div className="version-image-container">
+                                  <img src={versionData.imageUrl} alt={versionData.imageTitle || ''} className="version-image-preview" />
+                                  <div className="version-image-info">
+                                    {versionData.imageTitle && <div className="image-title">{versionData.imageTitle}</div>}
+                                    {versionData.imageTag && <div className="image-tag">Tag: {versionData.imageTag}</div>}
+                                  </div>
+                                  <button
+                                    className="remove-image-button"
+                                    onClick={async () => {
+                                      const updatedField = { ...field };
+                                      const versionIndex = updatedField.aiVersions.findIndex(v => v.version === version);
+                                      if (versionIndex >= 0) {
+                                        const { imageUrl, imageTitle, imageTag, ...rest } = updatedField.aiVersions[versionIndex];
+                                        updatedField.aiVersions[versionIndex] = rest;
+                                        updatedField.updatedAt = new Date().toISOString();
+                                        await onSave(updatedField);
+                                      }
+                                    }}
+                                    title="Supprimer l'image"
+                                  >
+                                    ✕ Supprimer l'image
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <>
+                                <textarea
+                                  value={value}
+                                  onChange={(e) => {
+                                    const newValue = e.target.value;
+                                    // Mettre à jour immédiatement le state pour l'affichage
+                                    if (version === 1) setVersion1Value(newValue);
+                                    else if (version === 2) setVersion2Value(newValue);
+                                    else setVersion3Value(newValue);
+                                  }}
+                                  rows={2}
+                                  placeholder={`Version ${version}`}
+                                />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  id={`image-upload-${version}`}
+                                  style={{ display: 'none' }}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = async (event) => {
+                                        const imageData = event.target?.result as string;
+                                        const updatedField = { ...field };
+                                        const versionIndex = updatedField.aiVersions.findIndex(v => v.version === version);
+                                        const imageTitle = prompt('Titre de l\'image (optionnel):') || '';
+                                        const imageTag = prompt('Tag de l\'image (optionnel):') || '';
+                                        
+                                        if (versionIndex >= 0) {
+                                          updatedField.aiVersions[versionIndex] = {
+                                            ...updatedField.aiVersions[versionIndex],
+                                            imageUrl: imageData,
+                                            imageTitle,
+                                            imageTag,
+                                            value: '', // Effacer le texte si on ajoute une image
+                                          };
+                                        } else {
+                                          updatedField.aiVersions.push({
+                                            version,
+                                            value: '',
+                                            createdAt: new Date().toISOString(),
+                                            imageUrl: imageData,
+                                            imageTitle,
+                                            imageTag,
+                                          });
+                                        }
+                                        updatedField.updatedAt = new Date().toISOString();
+                                        await onSave(updatedField);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                    e.target.value = ''; // Réinitialiser l'input
+                                  }}
+                                />
+                                <label htmlFor={`image-upload-${version}`} className="upload-image-button">
+                                  📷 Ajouter une image
+                                </label>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     );
@@ -1247,53 +1329,128 @@ export const FieldEditor = ({
                           onDragOver={onDragOver}
                           onDrop={onDrop ? (e) => onDrop(version as 1 | 2 | 3, language, e) : undefined}
                         >
-                          <textarea
-                            value={currentValue}
-                            onChange={async (e) => {
-                              const newValue = e.target.value;
-                              // Mettre à jour le state local pour l'affichage immédiat
-                              if (version === 1) setVersion1Value(newValue);
-                              else if (version === 2) setVersion2Value(newValue);
-                              else setVersion3Value(newValue);
-                              
-                              // Sauvegarder immédiatement dans la base de données
-                              const updatedField = addTranslationToField(field, language, newValue, version);
-                              
-                              // Gérer les traductions automatiques
-                              if (autoTranslation && newValue !== autoTranslation) {
-                                // Modification manuelle, garder la traduction auto pour réinitialisation
-                              } else if (!autoTranslation && newValue) {
-                                if (!autoTranslationsRef.current[language]) {
-                                  autoTranslationsRef.current[language] = {};
-                                }
-                                autoTranslationsRef.current[language][version] = newValue;
-                              } else if (newValue === '' && autoTranslation) {
-                                if (autoTranslationsRef.current[language]) {
-                                  delete autoTranslationsRef.current[language][version];
-                                }
-                              }
-                              
-                              await onSave(updatedField);
-                            }}
-                            rows={2}
-                            placeholder={`Version ${version}`}
-                          />
-                          <div className="version-buttons">
-                            <button
-                              className="translate-version-button"
-                              onClick={() => translateVersion(version as 1 | 2 | 3)}
-                              title="Traduire cette version dans toutes les langues"
-                            >
-                              🌐
-                            </button>
-                            <button
-                              className="clear-version-button"
-                              onClick={() => clearVersion(version as 1 | 2 | 3)}
-                              title="Effacer cette version et toutes ses traductions dans toutes les langues"
-                            >
-                              ✕
-                            </button>
-                          </div>
+                          {(() => {
+                            const hasImage = versionData?.imageUrl;
+                            
+                            if (hasImage) {
+                              return (
+                                <div className="version-image-container">
+                                  <img src={versionData.imageUrl} alt={versionData.imageTitle || ''} className="version-image-preview" />
+                                  <div className="version-image-info">
+                                    {versionData.imageTitle && <div className="image-title">{versionData.imageTitle}</div>}
+                                    {versionData.imageTag && <div className="image-tag">Tag: {versionData.imageTag}</div>}
+                                  </div>
+                                  <button
+                                    className="remove-image-button"
+                                    onClick={async () => {
+                                      const updatedField = { ...field };
+                                      const versionIndex = updatedField.languageVersions.findIndex(
+                                        v => v.language === language && v.version === version
+                                      );
+                                      if (versionIndex >= 0) {
+                                        const { imageUrl, imageTitle, imageTag, ...rest } = updatedField.languageVersions[versionIndex];
+                                        updatedField.languageVersions[versionIndex] = rest;
+                                        updatedField.updatedAt = new Date().toISOString();
+                                        await onSave(updatedField);
+                                      }
+                                    }}
+                                    title="Supprimer l'image"
+                                  >
+                                    ✕ Supprimer l'image
+                                  </button>
+                                </div>
+                              );
+                            }
+                            
+                            return (
+                              <>
+                                <textarea
+                                  value={currentValue}
+                                  onChange={async (e) => {
+                                    const newValue = e.target.value;
+                                    // Mettre à jour le state local pour l'affichage immédiat
+                                    if (version === 1) setVersion1Value(newValue);
+                                    else if (version === 2) setVersion2Value(newValue);
+                                    else setVersion3Value(newValue);
+                                    
+                                    // Sauvegarder immédiatement dans la base de données
+                                    const updatedField = addTranslationToField(field, language, newValue, version);
+                                    
+                                    // Gérer les traductions automatiques
+                                    if (autoTranslation && newValue !== autoTranslation) {
+                                      // Modification manuelle, garder la traduction auto pour réinitialisation
+                                    } else if (!autoTranslation && newValue) {
+                                      if (!autoTranslationsRef.current[language]) {
+                                        autoTranslationsRef.current[language] = {};
+                                      }
+                                      autoTranslationsRef.current[language][version] = newValue;
+                                    } else if (newValue === '' && autoTranslation) {
+                                      if (autoTranslationsRef.current[language]) {
+                                        delete autoTranslationsRef.current[language][version];
+                                      }
+                                    }
+                                    
+                                    await onSave(updatedField);
+                                  }}
+                                  rows={2}
+                                  placeholder={`Version ${version}`}
+                                />
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  id={`image-upload-${language}-${version}`}
+                                  style={{ display: 'none' }}
+                                  onChange={async (e) => {
+                                    const file = e.target.files?.[0];
+                                    if (file) {
+                                      const reader = new FileReader();
+                                      reader.onload = async (event) => {
+                                        const imageData = event.target?.result as string;
+                                        const imageTitle = prompt('Titre de l\'image (optionnel):') || '';
+                                        const imageTag = prompt('Tag de l\'image (optionnel):') || '';
+                                        const updatedField = addTranslationToField(field, language, '', version);
+                                        const versionIndex = updatedField.languageVersions.findIndex(
+                                          v => v.language === language && v.version === version
+                                        );
+                                        if (versionIndex >= 0) {
+                                          updatedField.languageVersions[versionIndex] = {
+                                            ...updatedField.languageVersions[versionIndex],
+                                            imageUrl: imageData,
+                                            imageTitle,
+                                            imageTag,
+                                            value: '', // Effacer le texte si on ajoute une image
+                                          };
+                                        }
+                                        updatedField.updatedAt = new Date().toISOString();
+                                        await onSave(updatedField);
+                                      };
+                                      reader.readAsDataURL(file);
+                                    }
+                                    e.target.value = ''; // Réinitialiser l'input
+                                  }}
+                                />
+                                <label htmlFor={`image-upload-${language}-${version}`} className="upload-image-button">
+                                  📷 Ajouter une image
+                                </label>
+                                <div className="version-buttons">
+                                  <button
+                                    className="translate-version-button"
+                                    onClick={() => translateVersion(version as 1 | 2 | 3)}
+                                    title="Traduire cette version dans toutes les langues"
+                                  >
+                                    🌐
+                                  </button>
+                                  <button
+                                    className="clear-version-button"
+                                    onClick={() => clearVersion(version as 1 | 2 | 3)}
+                                    title="Effacer cette version et toutes ses traductions dans toutes les langues"
+                                  >
+                                    ✕
+                                  </button>
+                                </div>
+                              </>
+                            );
+                          })()}
                         </div>
                       </div>
                     );

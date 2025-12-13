@@ -6,6 +6,9 @@ export interface LanguageVersion {
   value: string;
   createdAt: string;
   prompt?: string;
+  imageUrl?: string; // URL ou base64 de l'image
+  imageTitle?: string; // Titre de l'image
+  imageTag?: string; // Tag de l'image
 }
 
 export interface AIVersion {
@@ -13,6 +16,9 @@ export interface AIVersion {
   value: string;
   createdAt: string;
   prompt?: string;
+  imageUrl?: string; // URL ou base64 de l'image
+  imageTitle?: string; // Titre de l'image
+  imageTag?: string; // Tag de l'image
 }
 
 export interface UserDataField {
