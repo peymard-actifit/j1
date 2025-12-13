@@ -8,7 +8,7 @@ import { Header } from './components/Header';
 import { NavigationBar } from './components/NavigationBar';
 import { DataEditor } from './components/DataEditor';
 import { storage } from './utils/storage';
-import { initializeDefaultStructure } from './utils/storage';
+import { initializeDefaultStructure, mergeDefaultFieldsWithExisting } from './utils/storage';
 import './App.css';
 
 const AppContent = () => {
@@ -41,13 +41,25 @@ const AppContent = () => {
   }, [user]);
 
   useEffect(() => {
-    if (user && (!user.data || user.data.length === 0)) {
-      // Initialiser la structure par défaut si l'utilisateur n'a pas de données
-      const defaultData = initializeDefaultStructure();
-      const updatedUser = { ...user, data: defaultData };
-      storage.saveUser(updatedUser).catch(error => {
-        console.error('Error initializing default structure:', error);
-      });
+    if (user) {
+      if (!user.data || user.data.length === 0) {
+        // Initialiser la structure par défaut si l'utilisateur n'a pas de données
+        const defaultData = initializeDefaultStructure();
+        const updatedUser = { ...user, data: defaultData };
+        storage.saveUser(updatedUser).catch(error => {
+          console.error('Error initializing default structure:', error);
+        });
+      } else {
+        // Fusionner les nouveaux champs par défaut avec les données existantes
+        const mergedData = mergeDefaultFieldsWithExisting(user.data);
+        if (mergedData.length > user.data.length) {
+          // Il y a de nouveaux champs à ajouter
+          const updatedUser = { ...user, data: mergedData };
+          storage.saveUser(updatedUser).catch(error => {
+            console.error('Error merging default fields:', error);
+          });
+        }
+      }
     }
   }, [user]);
 

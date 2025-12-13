@@ -127,6 +127,18 @@ export const storage = {
   },
 };
 
+// Fonction pour fusionner les nouveaux champs par défaut avec les données existantes
+export const mergeDefaultFieldsWithExisting = (existingFields: UserDataField[]): UserDataField[] => {
+  const defaultFields = initializeDefaultStructure();
+  const existingFieldIds = new Set(existingFields.map(f => f.id));
+  
+  // Ajouter uniquement les champs qui n'existent pas déjà
+  const newFields = defaultFields.filter(field => !existingFieldIds.has(field.id));
+  
+  // Fusionner : garder les champs existants et ajouter les nouveaux
+  return [...existingFields, ...newFields];
+};
+
 // Initialisation de la structure de base de données par défaut
 // Basée sur le template CV Long JustOne (20251118 JUSTONE Template CV Long.pdf)
 export const initializeDefaultStructure = (): UserDataField[] => {
@@ -689,7 +701,7 @@ export const initializeDefaultStructure = (): UserDataField[] => {
       createdAt: now,
       updatedAt: now,
     },
-    // Expériences professionnelles détaillées (XP01 à XP20)
+    // Expériences professionnelles détaillées (XP01 à XP30)
     // XP01
     {
       id: 'xp01periode',
@@ -983,8 +995,8 @@ export const initializeDefaultStructure = (): UserDataField[] => {
         },
       ];
     }).flat(),
-    // XP11 à XP20 - Création des champs pour chaque expérience
-    ...Array.from({ length: 10 }, (_, i) => {
+    // XP11 à XP30 - Création des champs pour chaque expérience
+    ...Array.from({ length: 20 }, (_, i) => {
       const num = String(i + 11).padStart(2, '0');
       return [
         {
