@@ -25,6 +25,8 @@ export const TemplateEditor = ({
   const [fileName, setFileName] = useState<string>('');
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string>('');
+  const [editMode, setEditMode] = useState<'text' | 'wysiwyg'>('text');
+  const [excelData, setExcelData] = useState<string[][]>([[]]);
 
   useEffect(() => {
     if (file) {
@@ -67,17 +69,21 @@ export const TemplateEditor = ({
             } else if (type === 'excel') {
               const XLSX = await import('xlsx');
               const workbook = XLSX.read(result, { type: 'array' });
-              const lines: string[] = [];
+              const data: string[][] = [];
               workbook.SheetNames.forEach(sheetName => {
                 const worksheet = workbook.Sheets[sheetName];
-                const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
-                data.forEach((row: any) => {
+                const sheetData = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+                sheetData.forEach((row: any) => {
                   if (Array.isArray(row)) {
-                    lines.push(row.join('\t'));
+                    data.push(row.map(cell => String(cell || '')));
                   }
                 });
               });
-              resolve(lines.join('\n') || 'Fichier Excel vide');
+              if (data.length === 0) {
+                data.push(['']);
+              }
+              setExcelData(data);
+              resolve(data.map(row => row.join('\t')).join('\n') || 'Fichier Excel vide');
             } else if (type === 'powerpoint') {
               // Pour PowerPoint, on utilise une approche simplifiée
               // Note: pptxgenjs ne peut pas lire les fichiers, seulement les créer
@@ -277,6 +283,13 @@ export const TemplateEditor = ({
           </div>
         </div>
         <div className="header-right-section">
+          <button 
+            className="mode-toggle-button" 
+            onClick={() => setEditMode(editMode === 'text' ? 'wysiwyg' : 'text')}
+            title={editMode === 'text' ? 'Passer en mode WYSIWYG' : 'Passer en mode texte'}
+          >
+            {editMode === 'text' ? '📝 Mode WYSIWYG' : '📄 Mode texte'}
+          </button>
           <button className="save-button" onClick={handleSave} disabled={isLoading || !fileName} title="Sauvegarder sous">
             💾 Sauvegarder sous
           </button>
@@ -288,6 +301,92 @@ export const TemplateEditor = ({
 
         {isLoading ? (
           <div className="editor-loading">Chargement...</div>
+        ) : editMode === 'wysiwyg' ? (
+          type === 'word' ? (
+            <div className="wysiwyg-editor">
+              <div className="wysiwyg-toolbar">
+                <button onClick={() => document.execCommand('bold')} title="Gras">B</button>
+                <button onClick={() => document.execCommand('italic')} title="Italique">I</button>
+                <button onClick={() => document.execCommand('underline')} title="Souligné">U</button>
+                <button onClick={() => document.execCommand('justifyLeft')} title="Aligner à gauche">◀</button>
+                <button onClick={() => document.execCommand('justifyCenter')} title="Centrer">⬌</button>
+                <button onClick={() => document.execCommand('justifyRight')} title="Aligner à droite">▶</button>
+              </div>
+              <div
+                className="wysiwyg-content"
+                contentEditable
+                dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br>') }}
+                onInput={(e) => {
+                  const html = e.currentTarget.innerHTML;
+                  setContent(html.replace(/<br>/g, '\n').replace(/<[^>]*>/g, ''));
+                }}
+                style={{
+                  minHeight: '400px',
+                  padding: '1rem',
+                  border: '2px solid #e0e0e0',
+                  borderRadius: '8px',
+                  outline: 'none'
+                }}
+              />
+            </div>
+          ) : type === 'excel' ? (
+            <div className="excel-editor">
+              <div className="excel-toolbar">
+                <button onClick={() => {
+                  setExcelData([...excelData, Array(excelData[0]?.length || 1).fill('')]);
+                }}>+ Ligne</button>
+                <button onClick={() => {
+                  setExcelData(excelData.map(row => [...row, '']));
+                }}>+ Colonne</button>
+              </div>
+              <table className="excel-table">
+                <tbody>
+                  {excelData.map((row, rowIndex) => (
+                    <tr key={rowIndex}>
+                      {row.map((cell, colIndex) => (
+                        <td key={colIndex}>
+                          <input
+                            type="text"
+                            value={cell}
+                            onChange={(e) => {
+                              const newData = [...excelData];
+                              newData[rowIndex][colIndex] = e.target.value;
+                              setExcelData(newData);
+                              setContent(newData.map(r => r.join('\t')).join('\n'));
+                            }}
+                            className="excel-cell"
+                          />
+                        </td>
+                      ))}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : type === 'powerpoint' ? (
+            <div className="powerpoint-editor">
+              <div className="slide-editor">
+                <div
+                  className="slide-content"
+                  contentEditable
+                  dangerouslySetInnerHTML={{ __html: content.replace(/\n/g, '<br>') }}
+                  onInput={(e) => {
+                    const html = e.currentTarget.innerHTML;
+                    setContent(html.replace(/<br>/g, '\n').replace(/<[^>]*>/g, ''));
+                  }}
+                  style={{
+                    minHeight: '400px',
+                    padding: '2rem',
+                    border: '2px solid #e0e0e0',
+                    borderRadius: '8px',
+                    outline: 'none',
+                    background: 'white',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                />
+              </div>
+            </div>
+          ) : null
         ) : (
           <textarea
             className="editor-textarea"

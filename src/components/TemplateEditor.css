@@ -146,3 +146,148 @@
   cursor: not-allowed;
 }
 
+.mode-toggle-button {
+  padding: 0.5rem 1rem;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 0.9rem;
+  transition: background 0.3s;
+  white-space: nowrap;
+}
+
+.mode-toggle-button:hover {
+  background: #5568d3;
+}
+
+.wysiwyg-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.wysiwyg-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 6px;
+  flex-wrap: wrap;
+}
+
+.wysiwyg-toolbar button {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.wysiwyg-toolbar button:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.wysiwyg-content {
+  min-height: 400px;
+  padding: 1rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+}
+
+.wysiwyg-content:focus {
+  border-color: #667eea;
+}
+
+.excel-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.excel-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  background: #f5f5f5;
+  border-radius: 6px;
+}
+
+.excel-toolbar button {
+  padding: 0.5rem 1rem;
+  background: white;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.excel-toolbar button:hover {
+  background: #667eea;
+  color: white;
+  border-color: #667eea;
+}
+
+.excel-table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.excel-table td {
+  border: 1px solid #e0e0e0;
+  padding: 0;
+}
+
+.excel-cell {
+  width: 100%;
+  padding: 0.5rem;
+  border: none;
+  outline: none;
+  font-size: 0.9rem;
+}
+
+.excel-cell:focus {
+  background: #f0f0f0;
+}
+
+.powerpoint-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.slide-editor {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 500px;
+}
+
+.slide-content {
+  width: 80%;
+  max-width: 800px;
+  aspect-ratio: 16/9;
+  min-height: 400px;
+  padding: 2rem;
+  border: 2px solid #e0e0e0;
+  border-radius: 8px;
+  outline: none;
+  background: white;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.slide-content:focus {
+  border-color: #667eea;
+}
+
