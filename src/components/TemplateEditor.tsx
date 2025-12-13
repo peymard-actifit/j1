@@ -15,7 +15,7 @@ interface TemplateEditorProps {
 export const TemplateEditor = ({ 
   type, 
   file, 
-  onSave, 
+  onSave: _onSave, 
   onClose, 
   fields,
   selectedLanguage: _selectedLanguage, // Sera utilisé pour la génération future
@@ -200,7 +200,7 @@ export const TemplateEditor = ({
             {
               id: 0,
               author: 'CV Generator',
-              date: new Date().toISOString(),
+              date: new Date(),
               children: [
                 new Paragraph({
                   children: [
