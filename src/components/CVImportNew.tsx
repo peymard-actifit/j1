@@ -193,7 +193,6 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
     if (language === field.baseLanguage) {
       const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
       const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
-      const v3 = field.aiVersions.find(v => v.version === 3)?.value || '';
       if (!v1 || v1.trim() === '') return 1;
       if (!v2 || v2.trim() === '') return 2;
       return 3;
@@ -201,7 +200,6 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
       const versions = field.languageVersions.filter(v => v.language === language);
       const v1 = versions.find(v => v.version === 1)?.value || '';
       const v2 = versions.find(v => v.version === 2)?.value || '';
-      const v3 = versions.find(v => v.version === 3)?.value || '';
       if (!v1 || v1.trim() === '') return 1;
       if (!v2 || v2.trim() === '') return 2;
       return 3;
