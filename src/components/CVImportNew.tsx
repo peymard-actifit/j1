@@ -344,12 +344,35 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
               {fileType === 'application/pdf' && fileContent ? (
                 <>
                   {/* Affichage visuel du PDF avec embed */}
-                  <embed
-                    src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
-                    type="application/pdf"
-                    className="pdf-viewer"
-                    title="CV PDF"
-                  />
+                  <div className="pdf-container">
+                    <embed
+                      src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                      type="application/pdf"
+                      className="pdf-viewer"
+                      title="CV PDF"
+                      onMouseUp={handleTextSelection}
+                    />
+                    {/* Overlay transparent pour capturer les événements de sélection et drag */}
+                    {selectedText && selectedText.trim().length > 0 && (
+                      <div
+                        className="pdf-drag-overlay"
+                        draggable={true}
+                        onDragStart={(e) => {
+                          if (selectedText && selectedText.trim().length > 0) {
+                            handleDragStart(e, selectedText);
+                          }
+                        }}
+                        onMouseDown={(e) => {
+                          // Permettre de commencer le drag depuis la sélection
+                          e.preventDefault();
+                        }}
+                      >
+                        <div className="drag-indicator">
+                          <span>📎 Glisser "{selectedText.substring(0, 30)}{selectedText.length > 30 ? '...' : ''}" vers un champ</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
                   {/* Texte extrait pour sélection et drag & drop - affiché en dessous */}
                   {pdfTextContent && (
                     <div 
@@ -370,7 +393,7 @@ export const CVImportNew = ({ onCancel }: CVImportNewProps) => {
                           <div
                             key={idx}
                             className={`text-line ${isSelected ? 'selected-text' : ''}`}
-                            draggable={!!selectedText && selectedText.trim().length > 0}
+                            draggable={isSelected && !!selectedText && selectedText.trim().length > 0}
                             onDragStart={(e) => {
                               if (selectedText && selectedText.trim().length > 0) {
                                 handleDragStart(e, selectedText);
