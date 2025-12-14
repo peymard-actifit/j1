@@ -7,7 +7,6 @@ import { NavigationBar } from './components/NavigationBar';
 import { DataEditor } from './components/DataEditor';
 import { storage } from './utils/storage';
 import { initializeDefaultStructure, mergeDefaultFieldsWithExisting } from './utils/storage';
-import './App.css';
 
 const AppContent = () => {
   const { user, setUser } = useAuth();
