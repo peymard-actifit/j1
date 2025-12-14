@@ -13,7 +13,6 @@ const AppContent = () => {
   const { user, setUser } = useAuth();
   const [showDataEditor, setShowDataEditor] = useState(true); // Toujours afficher l'éditeur
   const [showImport, setShowImport] = useState(false);
-  const [showProduce, setShowProduce] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
@@ -149,22 +148,13 @@ const AppContent = () => {
       <NavigationBar
         onModuleClick={() => {}}
         onAIClick={() => setShowAIPanel(true)}
-        onImportClick={() => {
-          setShowImport(!showImport);
-          if (!showImport) setShowProduce(false); // Fermer produce si on ouvre import
-        }}
-        onProduceClick={() => {
-          setShowProduce(!showProduce);
-          if (!showProduce) setShowImport(false); // Fermer import si on ouvre produce
-        }}
+        onImportClick={() => setShowImport(!showImport)}
       />
       <div className="app-content" style={{ marginTop: '50px' }}>
         {showDataEditor && user && (
           <DataEditor 
             showImport={showImport}
             onImportClose={() => setShowImport(false)}
-            showProduce={showProduce}
-            onProduceClose={() => setShowProduce(false)}
           />
         )}
 
