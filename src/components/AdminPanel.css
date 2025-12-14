@@ -1,0 +1,17 @@
+.admin-panel {
+  position: fixed;
+  top: 50px;
+  right: 0;
+  width: 300px;
+  height: calc(100vh - 50px);
+  background: white;
+  border-left: 1px solid #ddd;
+  padding: 1rem;
+  overflow-y: auto;
+  z-index: 100;
+}
+
+.admin-panel h2 {
+  margin-bottom: 1rem;
+  font-size: 1.5rem;
+}

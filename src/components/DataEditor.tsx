@@ -932,7 +932,7 @@ export const FieldEditor = ({
             const translationResult = await api.translate(sourceValue, targetLang, workingLanguage);
             
             if (!translationResult.success) {
-              throw new Error(translationResult.error || 'Erreur lors de la traduction');
+              throw new Error('Erreur lors de la traduction');
             }
             
             return {

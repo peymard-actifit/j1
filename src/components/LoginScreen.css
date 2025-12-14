@@ -1,108 +1,79 @@
-.login-screen {
-  min-height: 100vh;
+.login-screen-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
   display: flex;
-  align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 2rem;
+  align-items: center;
+  z-index: 1000;
 }
 
-.login-content {
+.login-screen {
   background: white;
-  padding: 3rem 4rem;
-  border-radius: 20px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  max-width: 450px;
-  width: 100%;
+  padding: 2rem;
+  border-radius: 8px;
+  width: 90%;
+  max-width: 400px;
+  position: relative;
 }
 
-.login-title {
-  font-size: 2.5rem;
-  font-weight: 700;
-  color: #667eea;
-  margin: 0 0 0.5rem 0;
-  text-align: center;
-}
-
-.login-subtitle {
-  font-size: 1.2rem;
+.close-btn {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
   color: #666;
-  margin: 0 0 2rem 0;
+}
+
+.login-screen h2 {
+  margin-bottom: 1.5rem;
   text-align: center;
 }
 
-.login-form {
+.login-screen form {
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
 }
 
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-}
-
-.form-group label {
-  font-weight: 600;
-  color: #333;
-}
-
-.form-group input {
+.login-screen input {
   padding: 0.75rem;
-  border: 2px solid #e0e0e0;
-  border-radius: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
   font-size: 1rem;
-  transition: border-color 0.3s;
 }
 
-.form-group input:focus {
-  outline: none;
-  border-color: #667eea;
-}
-
-.error-message {
-  padding: 1rem;
-  background: #fee;
-  color: #c33;
-  border-radius: 8px;
-  border: 1px solid #fcc;
-  text-align: center;
-}
-
-.submit-button {
-  padding: 1rem;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+.submit-btn {
+  padding: 0.75rem;
+  background: #667eea;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  border-radius: 4px;
+  font-size: 1rem;
   cursor: pointer;
-  transition: transform 0.3s;
 }
 
-.submit-button:hover {
-  transform: translateY(-2px);
+.submit-btn:hover {
+  background: #5568d3;
 }
 
-.switch-mode-button {
-  margin-top: 1.5rem;
-  padding: 0.5rem;
+.toggle-mode-btn {
   background: none;
   border: none;
   color: #667eea;
   cursor: pointer;
-  font-weight: 600;
   text-decoration: underline;
-  width: 100%;
+  padding: 0.5rem;
 }
 
-
-
-
-
-
-
-
-
+.error-message {
+  color: red;
+  font-size: 0.9rem;
+  text-align: center;
+}
