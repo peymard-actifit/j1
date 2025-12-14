@@ -588,7 +588,8 @@
 .version-input-wrapper {
   position: relative;
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 0.5rem;
 }
 
 .version-input-wrapper.manually-modified {
@@ -663,8 +664,8 @@
   font-size: 0.85rem;
   font-weight: 600;
   text-align: center;
-  margin-top: 0.5rem;
   transition: background 0.3s;
+  align-self: flex-start;
 }
 
 .upload-image-button:hover {
