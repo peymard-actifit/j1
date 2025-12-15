@@ -12,6 +12,7 @@ const AppContent = () => {
   const { user, setUser, updateUser } = useAuth();
   const [showDataEditor, setShowDataEditor] = useState(true); // Toujours afficher l'éditeur
   const [showImport, setShowImport] = useState(false);
+  const [showProduce, setShowProduce] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
   const [showLogin, setShowLogin] = useState(false);
   const [pendingChoice, setPendingChoice] = useState<'cv' | 'zero' | null>(null);
@@ -158,12 +159,15 @@ const AppContent = () => {
         onModuleClick={() => {}}
         onAIClick={() => setShowAIPanel(true)}
         onImportClick={() => setShowImport(!showImport)}
+        onProduceClick={() => setShowProduce(!showProduce)}
       />
       <div className="app-content" style={{ marginTop: '50px' }}>
         {showDataEditor && user && (
           <DataEditor 
             showImport={showImport}
             onImportClose={() => setShowImport(false)}
+            showProduce={showProduce}
+            onProduceClose={() => setShowProduce(false)}
           />
         )}
 

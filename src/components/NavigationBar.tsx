@@ -7,6 +7,7 @@ interface NavigationBarProps {
   onModuleClick: (module: string) => void;
   onAIClick: () => void;
   onImportClick: () => void;
+  onProduceClick: () => void;
 }
 
 const MODULES = [
@@ -21,7 +22,7 @@ const MODULES = [
 // Récupérer la version depuis package.json
 const APP_VERSION = import.meta.env.VITE_APP_VERSION || '1.67.0';
 
-export const NavigationBar = ({ onModuleClick, onAIClick, onImportClick }: NavigationBarProps) => {
+export const NavigationBar = ({ onModuleClick, onAIClick, onImportClick, onProduceClick }: NavigationBarProps) => {
   const { user, logout } = useAuth();
   const [showMenu, setShowMenu] = useState(false);
   const [showAdminPrompt, setShowAdminPrompt] = useState(false);
@@ -43,6 +44,9 @@ export const NavigationBar = ({ onModuleClick, onAIClick, onImportClick }: Navig
         <div className="nav-left-section">
           <button className="nav-import-button" onClick={onImportClick} title="Importer un CV">
             📄 Importer
+          </button>
+          <button className="nav-produce-button" onClick={onProduceClick} title="Produire un CV">
+            📝 Produire
           </button>
           <div className="nav-modules">
             {MODULES.map(module => (

@@ -20,7 +20,8 @@
   flex: 1;
 }
 
-.nav-import-button {
+.nav-import-button,
+.nav-produce-button {
   padding: 0.5rem 1rem;
   background: rgba(255, 255, 255, 0.2);
   color: white;
@@ -33,7 +34,8 @@
   white-space: nowrap;
 }
 
-.nav-import-button:hover {
+.nav-import-button:hover,
+.nav-produce-button:hover {
   background: rgba(255, 255, 255, 0.3);
 }
 

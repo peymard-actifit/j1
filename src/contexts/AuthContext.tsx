@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react';
-import { User } from '../types/database';
+import { User, UserDataField } from '../types/database';
 import { storage } from '../utils/storage';
 
 interface AuthContextType {
@@ -86,9 +86,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(cachedUser); // setUser met déjà à jour le cache
           return cachedUser;
         } else {
-          // Mot de passe incorrect dans le cache, essayer de mettre à jour
+          // Mot de passe incorrect dans le cache, mettre à jour SANS perdre les données
           console.warn('Mot de passe incorrect dans le cache, mise à jour...');
-          const updatedUser = { ...cachedUser, password, updatedAt: new Date().toISOString() };
+          const updatedUser = { 
+            ...cachedUser, 
+            password, 
+            updatedAt: new Date().toISOString(),
+            // PRÉSERVER les données existantes
+            data: cachedUser.data || []
+          };
           storage.setCurrentUserInCache(updatedUser);
           storage.setCurrentUser(updatedUser);
           setUser(updatedUser);
@@ -106,9 +112,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setUser(foundUser); // setUser met déjà à jour le cache
           return foundUser;
         } else {
-          // Mot de passe incorrect, mettre à jour dans l'API et le cache
+          // Mot de passe incorrect, mettre à jour dans l'API et le cache SANS perdre les données
           console.warn('Mot de passe incorrect, mise à jour...');
-          const updatedUser = { ...foundUser, password, updatedAt: new Date().toISOString() };
+          const updatedUser = { 
+            ...foundUser, 
+            password, 
+            updatedAt: new Date().toISOString(),
+            // PRÉSERVER les données existantes
+            data: foundUser.data || []
+          };
           try {
             await storage.saveUser(updatedUser);
           } catch (saveError) {
@@ -121,16 +133,68 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       }
       
-      // Si aucun utilisateur trouvé, créer un nouvel utilisateur avec les identifiants fournis
-      console.log('Aucun utilisateur trouvé, création d\'un nouvel utilisateur...');
+      // Si aucun utilisateur trouvé, chercher dans TOUS les caches localStorage possibles
+      // avant de créer un nouvel utilisateur
+      console.log('Aucun utilisateur trouvé avec cet email, recherche dans les anciens caches...');
+      
+      // Essayer de récupérer l'utilisateur depuis l'ID stocké
+      const userId = storage.getCurrentUserId();
+      if (userId) {
+        try {
+          const userById = await storage.getUser(userId);
+          if (userById && userById.email.toLowerCase() === email.toLowerCase()) {
+            // Utilisateur trouvé par ID, mettre à jour le mot de passe
+            const updatedUser = { ...userById, password, updatedAt: new Date().toISOString() };
+            try {
+              await storage.saveUser(updatedUser);
+            } catch (saveError) {
+              console.error('Erreur lors de la sauvegarde:', saveError);
+            }
+            storage.setCurrentUserInCache(updatedUser);
+            storage.setCurrentUser(updatedUser);
+            setUser(updatedUser);
+            return updatedUser;
+          }
+        } catch (error) {
+          console.error('Erreur lors de la récupération par ID:', error);
+        }
+      }
+      
+      // Si vraiment aucun utilisateur trouvé, créer un nouvel utilisateur
+      // MAIS d'abord vérifier s'il y a des données dans un ancien cache
+      const allCacheKeys = Object.keys(localStorage);
+      let existingData: UserDataField[] = [];
+      let existingName = email.split('@')[0];
+      
+      // Chercher dans tous les caches possibles
+      for (const key of allCacheKeys) {
+        if (key.includes('user') || key.includes('cache')) {
+          try {
+            const cached = localStorage.getItem(key);
+            if (cached) {
+              const parsed = JSON.parse(cached);
+              if (parsed && parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                existingData = parsed.data;
+                if (parsed.name) existingName = parsed.name;
+                console.log(`Données trouvées dans ${key}, préservation des ${existingData.length} champs`);
+                break;
+              }
+            }
+          } catch (e) {
+            // Ignorer les erreurs de parsing
+          }
+        }
+      }
+      
+      console.log('Création d\'un nouvel utilisateur avec préservation des données existantes...');
       const newUser: User = {
         id: Date.now().toString(),
         email,
         password,
-        name: email.split('@')[0],
+        name: existingName,
         baseLanguage: 'fr',
         isAdmin: false,
-        data: [],
+        data: existingData, // PRÉSERVER les données existantes au lieu de créer un tableau vide
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -154,9 +218,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         const cachedUser = storage.getCurrentUserFromCache();
         if (cachedUser && cachedUser.email.toLowerCase() === email.toLowerCase()) {
-          // Mettre à jour le mot de passe même en cas d'erreur
+          // Mettre à jour le mot de passe même en cas d'erreur SANS perdre les données
           if (cachedUser.password !== password) {
-            const updatedUser = { ...cachedUser, password, updatedAt: new Date().toISOString() };
+            const updatedUser = { 
+              ...cachedUser, 
+              password, 
+              updatedAt: new Date().toISOString(),
+              // PRÉSERVER les données existantes
+              data: cachedUser.data || []
+            };
             storage.setCurrentUserInCache(updatedUser);
             storage.setCurrentUser(updatedUser);
             setUser(updatedUser);
