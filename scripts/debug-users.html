@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Liste des Utilisateurs - Debug</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 1rem;
+        }
+        th, td {
+            padding: 0.75rem;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        th {
+            background: #f5f5f5;
+            font-weight: 600;
+        }
+        .password-cell {
+            font-family: monospace;
+            font-size: 0.85rem;
+        }
+        .debug-info {
+            margin-top: 2rem;
+            padding: 1rem;
+            background: #f5f5f5;
+            border-radius: 8px;
+        }
+        button {
+            padding: 0.5rem 1rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-bottom: 1rem;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+    </style>
+</head>
+<body>
+    <h1>Liste des Utilisateurs - Debug</h1>
+    <button onclick="loadUsers()">🔄 Actualiser</button>
+    <div id="users-container"></div>
+    <div class="debug-info">
+        <h3>Informations de débogage</h3>
+        <div id="debug-info"></div>
+    </div>
+
+    <script>
+        function loadUsers() {
+            const container = document.getElementById('users-container');
+            const debugInfo = document.getElementById('debug-info');
+            
+            // Récupérer depuis localStorage
+            const currentUserId = localStorage.getItem('j1_current_user');
+            const cachedUserStr = localStorage.getItem('j1_current_user_cache');
+            
+            let users = [];
+            if (cachedUserStr) {
+                try {
+                    const cachedUser = JSON.parse(cachedUserStr);
+                    users = [cachedUser];
+                } catch (e) {
+                    console.error('Erreur parsing cache:', e);
+                }
+            }
+            
+            // Afficher les utilisateurs
+            if (users.length === 0) {
+                container.innerHTML = '<p>Aucun utilisateur trouvé dans localStorage.</p>';
+            } else {
+                let html = '<table><thead><tr><th>ID</th><th>Nom</th><th>Email</th><th>Mot de passe</th><th>Langue</th><th>Admin</th><th>Nb champs</th></tr></thead><tbody>';
+                users.forEach(user => {
+                    html += `<tr>
+                        <td>${user.id}</td>
+                        <td>${user.name || ''}</td>
+                        <td>${user.email || ''}</td>
+                        <td class="password-cell">${user.password || ''}</td>
+                        <td>${user.baseLanguage || 'fr'}</td>
+                        <td>${user.isAdmin ? 'Oui' : 'Non'}</td>
+                        <td>${user.data?.length || 0}</td>
+                    </tr>`;
+                });
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            }
+            
+            // Afficher les infos de debug
+            debugInfo.innerHTML = `
+                <p><strong>ID utilisateur actuel (localStorage):</strong> ${currentUserId || 'Aucun'}</p>
+                <p><strong>Utilisateur en cache:</strong> ${cachedUserStr ? 'Oui' : 'Non'}</p>
+                ${cachedUserStr ? `
+                    <div style="margin-top: 1rem; padding: 0.5rem; background: white; border-radius: 4px;">
+                        <p><strong>Email:</strong> ${JSON.parse(cachedUserStr).email}</p>
+                        <p><strong>Mot de passe:</strong> ${JSON.parse(cachedUserStr).password}</p>
+                        <p><strong>Nom:</strong> ${JSON.parse(cachedUserStr).name}</p>
+                    </div>
+                ` : ''}
+            `;
+        }
+        
+        // Charger au démarrage
+        loadUsers();
+    </script>
+</body>
+</html>

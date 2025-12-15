@@ -167,35 +167,87 @@ export const CVProducer = ({ onCancel, embeddedMode = false }: CVProducerProps) 
 
     setIsGenerating(true);
     try {
-      // TODO: Implémenter la génération de PDF à partir du template
-      // Pour l'instant, on simule la génération
-      
-      // Si c'est un fichier template, on devrait :
-      // 1. Lire le contenu du fichier
+      let content = '';
+      let processedContent = '';
+
+      // 1. Lire le contenu du template
+      if (templateFile) {
+        // Lire le fichier template
+        if (templateType === 'word') {
+          const mammoth = await import('mammoth');
+          const arrayBuffer = await templateFile.arrayBuffer();
+          const result = await mammoth.extractRawText({ arrayBuffer });
+          content = result.value || '';
+        } else if (templateType === 'excel') {
+          const XLSX = await import('xlsx');
+          const arrayBuffer = await templateFile.arrayBuffer();
+          const workbook = XLSX.read(arrayBuffer, { type: 'array' });
+          const sheetName = workbook.SheetNames[0];
+          const worksheet = workbook.Sheets[sheetName];
+          const data = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: '' });
+          content = data.map((row: any) => Array.isArray(row) ? row.join('\t') : String(row)).join('\n');
+        } else if (templateType === 'powerpoint') {
+          // Pour PowerPoint, on ne peut pas facilement lire le contenu
+          // On va créer un PDF basique avec les données
+          content = 'CV généré depuis template PowerPoint\n\n';
+        }
+      } else {
+        // Template créé mais pas de fichier - utiliser un template par défaut
+        content = `CV - ${user.name || 'Utilisateur'}\n\n`;
+        content += `Nom: {nom,1}\n`;
+        content += `Prénom: {prenom,1}\n`;
+        content += `Email: {mail,1}\n`;
+        content += `Téléphone: {telephone,1}\n\n`;
+        content += `Résumé: {resumegeneral,1}\n\n`;
+      }
+
       // 2. Remplacer les tags par les valeurs
-      // 3. Convertir en PDF
+      processedContent = replaceTagsInContent(content, user.data);
+
+      // 3. Générer le PDF avec jsPDF
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
       
-      // Pour Excel/Word/PowerPoint, on peut utiliser des bibliothèques comme:
-      // - exceljs pour Excel
-      // - docx pour Word
-      // - pptxgenjs pour PowerPoint
-      // Puis convertir en PDF avec une API serveur ou une bibliothèque de conversion
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Simulation : créer un PDF simple avec les données
-      // En production, on utiliserait une vraie bibliothèque de génération PDF
-      // La fonction replaceTagsInContent sera utilisée ici pour remplacer les tags dans le template
-      const sampleContent = templateFile ? 'Template chargé' : 'Template créé';
-      replaceTagsInContent(sampleContent, user.data); // Utilisation de la fonction pour éviter l'erreur TypeScript
-      
-      const pdfBlob = new Blob(['PDF généré - À implémenter avec vraie génération'], { type: 'application/pdf' });
+      // Configuration
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 20;
+      const maxWidth = pageWidth - 2 * margin;
+      let yPosition = margin;
+      const lineHeight = 7;
+      const fontSize = 12;
+
+      doc.setFontSize(fontSize);
+
+      // Diviser le contenu en lignes et les ajouter au PDF
+      const lines = processedContent.split('\n');
+      for (const line of lines) {
+        // Vérifier si on doit créer une nouvelle page
+        if (yPosition + lineHeight > pageHeight - margin) {
+          doc.addPage();
+          yPosition = margin;
+        }
+
+        // Diviser les lignes longues en plusieurs lignes si nécessaire
+        const splitLines = doc.splitTextToSize(line, maxWidth);
+        for (const splitLine of splitLines) {
+          if (yPosition + lineHeight > pageHeight - margin) {
+            doc.addPage();
+            yPosition = margin;
+          }
+          doc.text(splitLine, margin, yPosition);
+          yPosition += lineHeight;
+        }
+      }
+
+      // Générer le blob PDF
+      const pdfBlob = doc.output('blob');
       const pdfUrl = URL.createObjectURL(pdfBlob);
       setGeneratedPDFUrl(pdfUrl);
       setShowPDFModal(true);
     } catch (error) {
       console.error('Erreur lors de la génération du PDF:', error);
-      alert('Erreur lors de la génération du PDF');
+      alert(`Erreur lors de la génération du PDF: ${error instanceof Error ? error.message : 'Erreur inconnue'}`);
     } finally {
       setIsGenerating(false);
     }

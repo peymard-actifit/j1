@@ -5,6 +5,7 @@ import { api } from './api';
 
 const STORAGE_KEYS = {
   CURRENT_USER: 'j1_current_user',
+  CURRENT_USER_CACHE: 'j1_current_user_cache',
 };
 
 export const storage = {
@@ -80,6 +81,35 @@ export const storage = {
     } else {
       localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
     }
+  },
+
+  // Cache utilisateur complet pour le login automatique
+  getCurrentUserFromCache: (): User | null => {
+    try {
+      const cached = localStorage.getItem(STORAGE_KEYS.CURRENT_USER_CACHE);
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.error('Error reading user cache:', error);
+    }
+    return null;
+  },
+
+  setCurrentUserInCache: (user: User | null): void => {
+    try {
+      if (user) {
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER_CACHE, JSON.stringify(user));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_CACHE);
+      }
+    } catch (error) {
+      console.error('Error saving user cache:', error);
+    }
+  },
+
+  clearCurrentUserCache: (): void => {
+    localStorage.removeItem(STORAGE_KEYS.CURRENT_USER_CACHE);
   },
 
   // CV Formats

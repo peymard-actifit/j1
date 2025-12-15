@@ -1,7 +1,7 @@
 {
     "name":  "j1",
     "private":  true,
-    "version":  "2.56.0",
+    "version":  "2.57.0",
     "type":  "module",
     "scripts":  {
                     "dev":  "vite",
@@ -18,6 +18,8 @@
                          "docx":  "^9.5.1",
                          "exceljs":  "^4.4.0",
                          "file-saver":  "^2.0.5",
+                         "html2canvas":  "^1.4.1",
+                         "jspdf":  "^3.0.4",
                          "mammoth":  "^1.11.0",
                          "openai":  "^6.10.0",
                          "pdfjs-dist":  "^5.4.449",

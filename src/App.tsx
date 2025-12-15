@@ -9,7 +9,7 @@ import { storage } from './utils/storage';
 import { initializeDefaultStructure, mergeDefaultFieldsWithExisting } from './utils/storage';
 
 const AppContent = () => {
-  const { user, setUser } = useAuth();
+  const { user, setUser, updateUser } = useAuth();
   const [showDataEditor, setShowDataEditor] = useState(true); // Toujours afficher l'éditeur
   const [showImport, setShowImport] = useState(false);
   const [showAIPanel, setShowAIPanel] = useState(false);
@@ -29,26 +29,36 @@ const AppContent = () => {
 
   useEffect(() => {
     if (user) {
+      // Le cache est mis à jour automatiquement via updateUser
+      
       if (!user.data || user.data.length === 0) {
         // Initialiser la structure par défaut si l'utilisateur n'a pas de données
         const defaultData = initializeDefaultStructure();
         const updatedUser = { ...user, data: defaultData };
-        storage.saveUser(updatedUser).catch(error => {
-          console.error('Error initializing default structure:', error);
-        });
+        storage.saveUser(updatedUser)
+          .then(saved => {
+            updateUser(saved);
+          })
+          .catch(error => {
+            console.error('Error initializing default structure:', error);
+          });
       } else {
         // Fusionner les nouveaux champs par défaut avec les données existantes
         const mergedData = mergeDefaultFieldsWithExisting(user.data);
         if (mergedData.length > user.data.length) {
           // Il y a de nouveaux champs à ajouter
           const updatedUser = { ...user, data: mergedData };
-          storage.saveUser(updatedUser).catch(error => {
-            console.error('Error merging default fields:', error);
-          });
+          storage.saveUser(updatedUser)
+            .then(saved => {
+              updateUser(saved);
+            })
+            .catch(error => {
+              console.error('Error merging default fields:', error);
+            });
         }
       }
     }
-  }, [user]);
+  }, [user?.id]); // Utiliser user?.id pour éviter les boucles infinies
 
   // Si l'utilisateur vient de s'inscrire et qu'il y a un choix en attente
   useEffect(() => {
@@ -65,7 +75,7 @@ const AppContent = () => {
             const defaultData = initializeDefaultStructure();
             const updatedUser = { ...user, data: defaultData };
             storage.saveUser(updatedUser).then(saved => {
-              setUser(saved);
+              updateUser(saved);
               setShowDataEditor(true);
               setPendingChoice(null);
             }).catch(error => {

@@ -15,7 +15,7 @@ interface TemplateEditorProps {
 export const TemplateEditor = ({ 
   type, 
   file, 
-  onSave: _onSave, 
+  onSave, 
   onClose, 
   fields,
   selectedLanguage: _selectedLanguage, // Sera utilisé pour la génération future
@@ -319,6 +319,23 @@ export const TemplateEditor = ({
             {editMode === 'office' && '🔧 OnlyOffice'}
             {editMode === 'onlyoffice' && '✏️ WYSIWYG'}
             {editMode === 'wysiwyg' && '📄 Mode texte'}
+          </button>
+          <button 
+            className="save-template-button" 
+            onClick={async () => {
+              try {
+                const blob = await generateFile(content, fileName || `template.${type === 'word' ? 'docx' : type === 'excel' ? 'xlsx' : 'pptx'}`, type);
+                const savedFile = new File([blob], fileName || `template.${type === 'word' ? 'docx' : type === 'excel' ? 'xlsx' : 'pptx'}`, {
+                  type: blob.type
+                });
+                onSave(savedFile);
+              } catch (err: any) {
+                setError(`Erreur lors de la sauvegarde: ${err.message}`);
+              }
+            }}
+            title="Sauvegarder le template"
+          >
+            💾 Sauvegarder
           </button>
           <button className="close-editor-button-small" onClick={onClose} title="Fermer l'éditeur">✕</button>
         </div>
