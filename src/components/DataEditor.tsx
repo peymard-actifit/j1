@@ -848,8 +848,9 @@ export const FieldEditor = ({
     }
     
     // Initialiser les traductions automatiques stockées depuis les languageVersions existantes
-    // Cela permet de détecter les modifications manuelles
-    // Mais seulement pour les langues secondaires (pas la langue de travail)
+    // CORRECTION: Si une valeur existe et correspond à une traduction auto stockée, on la considère comme auto
+    // Sinon, si une valeur existe mais qu'il n'y a pas de traduction auto stockée, on l'initialise comme auto
+    // pour éviter que le fond violet s'affiche quand on revient sur un champ automatiquement rempli
     field.languageVersions.forEach(lv => {
       // Ignorer la langue de travail - elle ne doit jamais être marquée comme modifiée manuellement
       if (lv.language === workingLanguage) {
@@ -859,17 +860,31 @@ export const FieldEditor = ({
       if (!autoTranslationsRef.current[lv.language]) {
         autoTranslationsRef.current[lv.language] = {};
       }
-      // IMPORTANT: Ne pas initialiser autoTranslationsRef avec les valeurs existantes
-      // car on ne sait pas si elles ont été créées manuellement ou automatiquement
-      // On laisse autoTranslationsRef vide au départ, et on le remplira uniquement
-      // lors des traductions automatiques via translateVersion
-      // Cela garantit que isManuallyModified ne sera vrai que si l'utilisateur
-      // a réellement modifié manuellement après une traduction automatique
+      
+      // Si une valeur existe et qu'il n'y a pas encore de traduction auto stockée pour cette version,
+      // on l'initialise avec la valeur actuelle pour éviter le fond violet au retour sur le champ
+      // Cela signifie qu'on considère que les valeurs existantes sont des traductions automatiques
+      // sauf si l'utilisateur les modifie manuellement
+      if (lv.value && lv.value.trim() && !autoTranslationsRef.current[lv.language][lv.version]) {
+        autoTranslationsRef.current[lv.language][lv.version] = lv.value;
+      }
     });
+    
+    // Faire de même pour aiVersions si c'est une langue secondaire
+    if (field.baseLanguage !== workingLanguage && field.baseLanguage !== userBaseLanguage) {
+      field.aiVersions.forEach(av => {
+        if (!autoTranslationsRef.current[field.baseLanguage]) {
+          autoTranslationsRef.current[field.baseLanguage] = {};
+        }
+        if (av.value && av.value.trim() && !autoTranslationsRef.current[field.baseLanguage][av.version]) {
+          autoTranslationsRef.current[field.baseLanguage][av.version] = av.value;
+        }
+      });
+    }
     
     setIsInitialLoad(true);
     setTimeout(() => setIsInitialLoad(false), 200);
-  }, [field.id, field.languageVersions.length, field.aiVersions.length, workingLanguage]); // Ajouter workingLanguage
+  }, [field.id, field.languageVersions.length, field.aiVersions.length, workingLanguage, userBaseLanguage]); // Ajouter userBaseLanguage
 
   // Fonction pour traduire une version spécifique de la langue principale dans toutes les langues secondaires
   const translateVersion = async (version: 1 | 2 | 3) => {
