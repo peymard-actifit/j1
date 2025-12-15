@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Récupération des Données Perdues</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 2rem;
+            max-width: 900px;
+            margin: 0 auto;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #667eea;
+        }
+        button {
+            padding: 1rem 2rem;
+            background: #667eea;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            margin: 1rem 0;
+        }
+        button:hover {
+            background: #5568d3;
+        }
+        .result {
+            margin-top: 1rem;
+            padding: 1rem;
+            border-radius: 6px;
+            background: #f0f0f0;
+        }
+        .success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .warning {
+            background: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeaa7;
+        }
+        pre {
+            background: #f8f9fa;
+            padding: 1rem;
+            border-radius: 4px;
+            overflow-x: auto;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .field-list {
+            margin-top: 1rem;
+        }
+        .field-item {
+            padding: 0.5rem;
+            margin: 0.25rem 0;
+            background: #f8f9fa;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Récupération des Données Perdues</h1>
+        <p>Ce script va chercher vos données sauvegardées dans localStorage et les restaurer si possible.</p>
+        
+        <button onclick="recoverData()">🔍 Rechercher et Restaurer les Données</button>
+        
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function recoverData() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>⏳ Recherche en cours...</p>';
+            
+            // Récupérer tous les clés localStorage
+            const allKeys = Object.keys(localStorage);
+            let foundData = null;
+            let foundUser = null;
+            const allUsers = [];
+            
+            // Chercher dans toutes les clés possibles
+            for (const key of allKeys) {
+                try {
+                    const value = localStorage.getItem(key);
+                    if (value) {
+                        const parsed = JSON.parse(value);
+                        
+                        // Chercher un objet utilisateur avec des données
+                        if (parsed && typeof parsed === 'object') {
+                            // Si c'est un tableau de champs (data)
+                            if (Array.isArray(parsed) && parsed.length > 0 && parsed[0].id && parsed[0].name) {
+                                console.log(`✅ Données trouvées dans ${key}: ${parsed.length} champs`);
+                                if (!foundData || parsed.length > foundData.length) {
+                                    foundData = parsed;
+                                }
+                            }
+                            // Si c'est un utilisateur avec des données
+                            else if (parsed.data && Array.isArray(parsed.data) && parsed.data.length > 0) {
+                                console.log(`✅ Utilisateur trouvé dans ${key}: ${parsed.data.length} champs`);
+                                allUsers.push({ key, user: parsed, dataCount: parsed.data.length });
+                                if (!foundUser || parsed.data.length > foundUser.data.length) {
+                                    foundUser = parsed;
+                                    foundData = parsed.data;
+                                }
+                            }
+                            // Si c'est un utilisateur complet (même sans données)
+                            else if (parsed.email && parsed.id) {
+                                allUsers.push({ key, user: parsed, dataCount: parsed.data?.length || 0 });
+                                if (!foundUser) {
+                                    foundUser = parsed;
+                                }
+                            }
+                        }
+                    }
+                } catch (e) {
+                    // Ignorer les erreurs de parsing
+                }
+            }
+            
+            // Récupérer l'utilisateur actuel
+            const currentUserStr = localStorage.getItem('j1_current_user_cache');
+            let currentUser = null;
+            if (currentUserStr) {
+                try {
+                    currentUser = JSON.parse(currentUserStr);
+                } catch (e) {
+                    console.error('Erreur parsing utilisateur actuel:', e);
+                }
+            }
+            
+            if (foundData && foundData.length > 0) {
+                resultDiv.className = 'result success';
+                resultDiv.innerHTML = `
+                    <h3>✅ Données Trouvées !</h3>
+                    <p><strong>Nombre de champs récupérés:</strong> ${foundData.length}</p>
+                    <div class="field-list">
+                        <strong>Liste des champs:</strong>
+                        ${foundData.map(f => `<div class="field-item">${f.name || f.tag || f.id}</div>`).join('')}
+                    </div>
+                `;
+                
+                if (currentUser) {
+                    resultDiv.innerHTML += `
+                        <hr>
+                        <h4>Mise à jour de l'utilisateur actuel</h4>
+                        <p><strong>Email actuel:</strong> ${currentUser.email}</p>
+                        <p><strong>Données actuelles:</strong> ${currentUser.data?.length || 0} champs</p>
+                        <p><strong>Données à restaurer:</strong> ${foundData.length} champs</p>
+                    `;
+                    
+                    // Restaurer les données
+                    currentUser.data = foundData;
+                    currentUser.updatedAt = new Date().toISOString();
+                    
+                    localStorage.setItem('j1_current_user_cache', JSON.stringify(currentUser));
+                    resultDiv.innerHTML += `
+                        <p style="color: green; font-weight: bold;">✅ Données restaurées avec succès !</p>
+                        <p><strong>Prochaine étape:</strong> Rechargez la page de l'application pour voir vos champs restaurés.</p>
+                    `;
+                } else {
+                    resultDiv.innerHTML += `
+                        <hr>
+                        <div class="warning">
+                            <p><strong>⚠️ Aucun utilisateur actuel trouvé dans le cache.</strong></p>
+                            <p>Les données sont disponibles mais ne peuvent pas être restaurées automatiquement.</p>
+                            <p>Vous pouvez copier les données ci-dessous et les restaurer manuellement.</p>
+                        </div>
+                        <details>
+                            <summary>Données JSON (cliquez pour voir)</summary>
+                            <pre>${JSON.stringify(foundData, null, 2)}</pre>
+                        </details>
+                    `;
+                }
+            } else if (allUsers.length > 0) {
+                resultDiv.className = 'result warning';
+                resultDiv.innerHTML = `
+                    <h3>⚠️ Utilisateurs Trouvés mais Aucune Donnée</h3>
+                    <p>Des utilisateurs ont été trouvés mais aucun ne contient de données :</p>
+                    <ul>
+                        ${allUsers.map(u => `<li>${u.key}: ${u.user.email || 'Sans email'} (${u.dataCount} champs)</li>`).join('')}
+                    </ul>
+                    ${currentUser ? `
+                        <hr>
+                        <p><strong>Utilisateur actuel:</strong> ${currentUser.email}</p>
+                        <p><strong>Données actuelles:</strong> ${currentUser.data?.length || 0} champs</p>
+                    ` : ''}
+                `;
+            } else {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <h3>❌ Aucune Donnée Trouvée</h3>
+                    <p>Malheureusement, aucune donnée n'a été trouvée dans localStorage.</p>
+                    <p>Les données peuvent avoir été perdues définitivement ou stockées ailleurs.</p>
+                    ${currentUser ? `
+                        <hr>
+                        <p><strong>Utilisateur actuel:</strong> ${currentUser.email}</p>
+                        <p><strong>Données actuelles:</strong> ${currentUser.data?.length || 0} champs</p>
+                    ` : ''}
+                `;
+            }
+            
+            console.log('Résultat de la récupération:', { foundData, foundUser, currentUser, allUsers });
+        }
+    </script>
+</body>
+</html>
+
