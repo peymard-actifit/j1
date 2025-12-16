@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { storage, mergeDefaultFieldsWithExisting } from '../utils/storage';
+import { storage, mergeDefaultFieldsWithExisting, initializeDefaultStructure } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { FieldEditor } from './DataEditor';
 import './CVImportNew.css';
@@ -51,7 +51,6 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
           });
         }
       } else {
-        const { initializeDefaultStructure } = require('../utils/storage');
         const defaultFields = initializeDefaultStructure();
         setUserFields(defaultFields);
       }
