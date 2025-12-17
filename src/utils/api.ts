@@ -144,6 +144,50 @@ export const api = {
     }
   },
 
+  // AI Rephrase (reformulation)
+  async rephraseWithAI(params: {
+    text: string;
+    language: string;
+    fieldName?: string;
+    context?: boolean;
+  }): Promise<{
+    success: boolean;
+    rephrasedText: string;
+    error?: string;
+    tokensUsed?: number;
+  }> {
+    try {
+      const response = await fetch(`${API_BASE}/api/rephrase`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          rephrasedText: params.text,
+          error: result.error || 'Erreur lors de la reformulation'
+        };
+      }
+      
+      return {
+        success: result.success,
+        rephrasedText: result.rephrasedText || params.text,
+        error: result.error,
+        tokensUsed: result.tokensUsed
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        rephrasedText: params.text,
+        error: error.message || 'Erreur de connexion'
+      };
+    }
+  },
+
   // CV Analysis with AI
   async analyzeCVWithAI(params: {
     textContent?: string;

@@ -985,6 +985,67 @@ export const FieldEditor = ({
     await onSave(updatedField);
   };
 
+  // Fonction pour reformuler la version N-1 vers la version N avec l'IA
+  const rephraseFromPreviousVersion = async (targetVersion: 2 | 3) => {
+    const sourceVersion = (targetVersion - 1) as 1 | 2;
+    const sourceValue = sourceVersion === 1 ? version1Value : version2Value;
+    
+    if (!sourceValue || !sourceValue.trim()) {
+      alert(`La version ${sourceVersion} est vide. Impossible de reformuler.`);
+      return;
+    }
+    
+    try {
+      const result = await api.rephraseWithAI({
+        text: sourceValue,
+        language: workingLanguage,
+        fieldName: name,
+        context: true
+      });
+      
+      if (result.success && result.rephrasedText) {
+        // Mettre à jour la version cible avec le texte reformulé
+        if (targetVersion === 2) {
+          setVersion2Value(result.rephrasedText);
+        } else {
+          setVersion3Value(result.rephrasedText);
+        }
+        
+        // Sauvegarder le champ avec la nouvelle valeur
+        const now = new Date().toISOString();
+        let updatedField = { ...field };
+        
+        // Mettre à jour dans aiVersions si c'est la langue de base
+        if (workingLanguage === field.baseLanguage) {
+          const existingIndex = updatedField.aiVersions.findIndex(v => v.version === targetVersion);
+          if (existingIndex >= 0) {
+            updatedField.aiVersions[existingIndex].value = result.rephrasedText;
+          } else {
+            updatedField.aiVersions.push({
+              version: targetVersion,
+              value: result.rephrasedText,
+              createdAt: now
+            });
+          }
+        } else {
+          // Sinon mettre à jour dans languageVersions
+          updatedField = addTranslationToField(updatedField, workingLanguage, result.rephrasedText, targetVersion);
+        }
+        
+        updatedField.updatedAt = now;
+        await onSave(updatedField);
+        
+        // Déclencher la traduction automatique de cette version dans toutes les langues
+        setTimeout(() => translateVersion(targetVersion), 500);
+      } else {
+        alert(`Erreur lors de la reformulation: ${result.error || 'Erreur inconnue'}`);
+      }
+    } catch (error: any) {
+      console.error('Error rephrasing:', error);
+      alert(`Erreur: ${error.message || 'Erreur inconnue'}`);
+    }
+  };
+
   // Fonction pour effacer une version de la langue principale et toutes ses traductions
   const clearVersion = async (version: 1 | 2 | 3) => {
     // Effacer la version dans le state IMMÉDIATEMENT pour que le champ se vide visuellement
@@ -1152,6 +1213,15 @@ export const FieldEditor = ({
                         <div className="version-label-with-buttons">
                           <label className="version-label">Version {version}</label>
                           <div className="version-buttons">
+                            {(version === 2 || version === 3) && (
+                              <button
+                                className="rephrase-version-button"
+                                onClick={() => rephraseFromPreviousVersion(version as 2 | 3)}
+                                title={`Reformuler la version ${version - 1} avec l'IA`}
+                              >
+                                🤖
+                              </button>
+                            )}
                             <button
                               className="translate-version-button"
                               onClick={() => translateVersion(version as 1 | 2 | 3)}
@@ -1433,6 +1503,15 @@ export const FieldEditor = ({
                                   📷 Ajouter une image
                                 </label>
                                 <div className="version-buttons">
+                                  {(version === 2 || version === 3) && (
+                                    <button
+                                      className="rephrase-version-button"
+                                      onClick={() => rephraseFromPreviousVersion(version as 2 | 3)}
+                                      title={`Reformuler la version ${version - 1} avec l'IA`}
+                                    >
+                                      🤖
+                                    </button>
+                                  )}
                                   <button
                                     className="translate-version-button"
                                     onClick={() => translateVersion(version as 1 | 2 | 3)}

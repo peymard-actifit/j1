@@ -760,7 +760,8 @@
 
 .translate-version-button,
 .clear-version-button,
-.reset-translation-button {
+.reset-translation-button,
+.rephrase-version-button {
   background: white;
   border-radius: 6px;
   width: 28px;
@@ -778,7 +779,8 @@
 
 .translate-version-button:hover,
 .clear-version-button:hover,
-.reset-translation-button:hover {
+.reset-translation-button:hover,
+.rephrase-version-button:hover {
   transform: translateY(-1px);
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
@@ -787,6 +789,17 @@
   background: #dbeafe;
   border-color: #2563eb;
   color: #1d4ed8;
+}
+
+.rephrase-version-button {
+  border-color: #10b981;
+  color: #059669;
+}
+
+.rephrase-version-button:hover {
+  background: #d1fae5;
+  border-color: #059669;
+  color: #047857;
 }
 
 .clear-version-button {
