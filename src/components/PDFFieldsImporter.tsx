@@ -364,8 +364,9 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
 
   // Fonction pour trouver la version disponible pour un champ
   const findAvailableVersion = (field: UserDataField): 1 | 2 | 3 => {
-    const v1 = field.aiVersions.find(v => v.version === 1)?.value || '';
-    const v2 = field.aiVersions.find(v => v.version === 2)?.value || '';
+    const versions = field.aiVersions || [];
+    const v1 = versions.find(v => v.version === 1)?.value || '';
+    const v2 = versions.find(v => v.version === 2)?.value || '';
     
     if (!v1 || v1.trim() === '') return 1;
     if (!v2 || v2.trim() === '') return 2;
@@ -383,16 +384,26 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     const now = new Date().toISOString();
     
     const existingFieldIndex = existingFields.findIndex(
-      f => f.tag.toLowerCase() === tag.toLowerCase()
+      f => f.tag && f.tag.toLowerCase() === tag.toLowerCase()
     );
     
     if (existingFieldIndex >= 0) {
-      const field = { ...existingFields[existingFieldIndex] };
+      // Copie profonde du champ existant
+      const originalField = existingFields[existingFieldIndex];
+      const field: UserDataField = { 
+        ...originalField,
+        aiVersions: originalField.aiVersions ? [...originalField.aiVersions.map(v => ({...v}))] : [],
+        languageVersions: originalField.languageVersions ? [...originalField.languageVersions.map(v => ({...v}))] : []
+      };
+      
       const version = findAvailableVersion(field);
       
       const existingVersionIndex = field.aiVersions.findIndex(v => v.version === version);
       if (existingVersionIndex >= 0) {
-        field.aiVersions[existingVersionIndex].value = value;
+        field.aiVersions[existingVersionIndex] = {
+          ...field.aiVersions[existingVersionIndex],
+          value
+        };
       } else {
         field.aiVersions.push({
           version,
@@ -440,32 +451,55 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
 
   // Importer les tags sélectionnés comme champs
   const handleImportSelectedTags = async () => {
-    if (!user || !setUser) return;
+    console.log('handleImportSelectedTags called', { user: !!user, setUser: !!setUser, extractedTags });
+    
+    if (!user) {
+      setImportLog(prev => [...prev, '❌ Erreur: Utilisateur non connecté']);
+      return;
+    }
+    
+    if (!setUser) {
+      setImportLog(prev => [...prev, '❌ Erreur: Contexte d\'authentification non disponible']);
+      return;
+    }
+    
+    if (extractedTags.length === 0) {
+      setImportLog(prev => [...prev, '⚠️ Aucun tag à importer']);
+      return;
+    }
     
     setIsProcessing(true);
     setProcessingStatus('Import des champs en cours...');
     
     const workingLanguage = user.baseLanguage || 'fr';
-    let currentFields = user.data || [];
+    let currentFields = user.data ? [...user.data] : [];
     const logs: string[] = [];
     
     const tagsToImport = selectedTags.size > 0 
       ? extractedTags.filter(t => selectedTags.has(t.tag))
       : extractedTags;
     
+    console.log('Tags to import:', tagsToImport);
+    
     for (const tagData of tagsToImport) {
-      const result = createOrUpdateField(currentFields, tagData.tag, tagData.value, workingLanguage);
-      currentFields = result.fields;
-      
-      if (result.created) {
-        logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
-      } else {
-        logs.push(`📝 Champ mis à jour: ${tagData.tag} (version ${result.version})`);
+      try {
+        const result = createOrUpdateField(currentFields, tagData.tag, tagData.value, workingLanguage);
+        currentFields = result.fields;
+        
+        if (result.created) {
+          logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
+        } else {
+          logs.push(`📝 Champ mis à jour: ${tagData.tag} (version ${result.version})`);
+        }
+      } catch (fieldError) {
+        console.error('Error creating field:', tagData.tag, fieldError);
+        logs.push(`❌ Erreur pour ${tagData.tag}: ${fieldError}`);
       }
     }
     
     try {
       const updatedUser = { ...user, data: currentFields };
+      console.log('Saving user with', currentFields.length, 'fields');
       const savedUser = await storage.saveUser(updatedUser);
       setUser(savedUser);
       
@@ -486,33 +520,56 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
 
   // Importer uniquement les champs (sans valeurs)
   const handleImportFieldsOnly = async () => {
-    if (!user || !setUser) return;
+    console.log('handleImportFieldsOnly called', { user: !!user, setUser: !!setUser, extractedTags });
+    
+    if (!user) {
+      setImportLog(prev => [...prev, '❌ Erreur: Utilisateur non connecté']);
+      return;
+    }
+    
+    if (!setUser) {
+      setImportLog(prev => [...prev, '❌ Erreur: Contexte d\'authentification non disponible']);
+      return;
+    }
+    
+    if (extractedTags.length === 0) {
+      setImportLog(prev => [...prev, '⚠️ Aucun tag à importer']);
+      return;
+    }
     
     setIsProcessing(true);
     setProcessingStatus('Création des champs vides...');
     
     const workingLanguage = user.baseLanguage || 'fr';
-    let currentFields = user.data || [];
+    let currentFields = user.data ? [...user.data] : [];
     const logs: string[] = [];
     
     const tagsToImport = selectedTags.size > 0 
       ? extractedTags.filter(t => selectedTags.has(t.tag))
       : extractedTags;
     
+    console.log('Tags to import (fields only):', tagsToImport);
+    
     for (const tagData of tagsToImport) {
-      const exists = currentFields.some(f => f.tag.toLowerCase() === tagData.tag.toLowerCase());
-      
-      if (!exists) {
-        const result = createOrUpdateField(currentFields, tagData.tag, '', workingLanguage);
-        currentFields = result.fields;
-        logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
-      } else {
-        logs.push(`⏭️ Champ existant ignoré: ${tagData.tag}`);
+      try {
+        const exists = currentFields.some(f => f.tag && f.tag.toLowerCase() === tagData.tag.toLowerCase());
+        
+        if (!exists) {
+          const result = createOrUpdateField(currentFields, tagData.tag, '', workingLanguage);
+          currentFields = result.fields;
+          logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
+        } else {
+          logs.push(`⏭️ Champ existant ignoré: ${tagData.tag}`);
+        }
+      } catch (fieldError) {
+        console.error('Error creating field:', tagData.tag, fieldError);
+        logs.push(`❌ Erreur pour ${tagData.tag}: ${fieldError}`);
       }
     }
     
     try {
       const updatedUser = { ...user, data: currentFields };
+      console.log('Saving user with', currentFields.length, 'fields');
       const savedUser = await storage.saveUser(updatedUser);
       setUser(savedUser);
       
