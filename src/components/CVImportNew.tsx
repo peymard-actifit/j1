@@ -3,6 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { storage, mergeDefaultFieldsWithExisting, initializeDefaultStructure } from '../utils/storage';
 import { UserDataField } from '../types/database';
 import { FieldEditor } from './DataEditor';
+import { PDFFieldsImporter } from './PDFFieldsImporter';
 import './CVImportNew.css';
 
 interface CVImportNewProps {
@@ -11,7 +12,10 @@ interface CVImportNewProps {
   embeddedMode?: boolean;
 }
 
+type ImportMode = 'manual' | 'auto';
+
 export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps) => {
+  const [importMode, setImportMode] = useState<ImportMode>('auto');
   const { user, setUser } = useAuth();
   const [file, setFile] = useState<File | null>(null);
   const [fileContent, setFileContent] = useState<string>('');
@@ -755,69 +759,96 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
   );
 
   if (embeddedMode) {
-    // Mode intégré dans DataEditor (sans overlay) - seulement l'affichage du document
+    // Mode intégré dans DataEditor (sans overlay)
     return (
       <>
         <div className="cv-import-new-embedded">
-          <div className="cv-import-new-content-embedded">
-            {/* Partie gauche : Affichage du CV uniquement */}
-            <div className="cv-display-panel">
-              {!file && (
-                <div className="file-selector-embedded">
-                  <input
-                    type="file"
-                    id="cv-file-input"
-                    accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
-                    onChange={handleFileChange}
-                    className="file-input"
-                  />
-                  <label htmlFor="cv-file-input" className="file-input-label">
-                    Choisir un fichier
-                  </label>
-                </div>
-              )}
+          {/* Onglets de mode d'import */}
+          <div className="import-mode-tabs">
+            <button 
+              className={`mode-tab ${importMode === 'auto' ? 'active' : ''}`}
+              onClick={() => setImportMode('auto')}
+            >
+              🤖 Import automatique
+            </button>
+            <button 
+              className={`mode-tab ${importMode === 'manual' ? 'active' : ''}`}
+              onClick={() => setImportMode('manual')}
+            >
+              ✋ Import manuel
+            </button>
+          </div>
 
-              {extractingPdfText && (
-                <div className="analysis-progress">
-                  <p>Extraction du texte du PDF...</p>
-                </div>
-              )}
-
-              <div
-                ref={cvDisplayRef}
-                className="cv-display-content"
-              >
-                {fileType === 'application/pdf' && fileContent ? (
-                  <div className="pdf-container">
-                    <embed
-                      src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
-                      type="application/pdf"
-                      className="pdf-viewer"
-                      title="CV PDF"
+          {importMode === 'auto' ? (
+            /* Mode import automatique avec PDFFieldsImporter */
+            <div className="auto-import-container">
+              <PDFFieldsImporter 
+                embeddedMode={true}
+                onFieldsUpdated={(fields) => {
+                  setUserFields(fields);
+                }}
+              />
+            </div>
+          ) : (
+            /* Mode import manuel - affichage du document */
+            <div className="cv-import-new-content-embedded">
+              <div className="cv-display-panel">
+                {!file && (
+                  <div className="file-selector-embedded">
+                    <input
+                      type="file"
+                      id="cv-file-input"
+                      accept=".pdf,.doc,.docx,.tex,.xls,.xlsx,.ppt,.pptx,.txt"
+                      onChange={handleFileChange}
+                      className="file-input"
                     />
-                    {/* Overlay transparent pour capturer la sélection - ne bloque pas la sélection native */}
-                    <div
-                      className="pdf-selection-overlay"
-                      style={{ pointerEvents: 'none' }}
-                    />
-                  </div>
-                ) : fileContent ? (
-                  <div className="text-content" onMouseUp={handleTextSelection} onSelect={handleTextSelection}>
-                    {fileContent.split('\n').map((line, idx) => (
-                      <div key={idx} className="text-line">
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="no-cv-message">
-                    <p>Sélectionnez un fichier CV pour commencer</p>
-                    <p className="hint">Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, Texte</p>
+                    <label htmlFor="cv-file-input" className="file-input-label">
+                      Choisir un fichier
+                    </label>
                   </div>
                 )}
+
+                {extractingPdfText && (
+                  <div className="analysis-progress">
+                    <p>Extraction du texte du PDF...</p>
+                  </div>
+                )}
+
+                <div
+                  ref={cvDisplayRef}
+                  className="cv-display-content"
+                >
+                  {fileType === 'application/pdf' && fileContent ? (
+                    <div className="pdf-container">
+                      <embed
+                        src={`${fileContent}#toolbar=0&navpanes=0&scrollbar=1`}
+                        type="application/pdf"
+                        className="pdf-viewer"
+                        title="CV PDF"
+                      />
+                      <div
+                        className="pdf-selection-overlay"
+                        style={{ pointerEvents: 'none' }}
+                      />
+                    </div>
+                  ) : fileContent ? (
+                    <div className="text-content" onMouseUp={handleTextSelection} onSelect={handleTextSelection}>
+                      {fileContent.split('\n').map((line, idx) => (
+                        <div key={idx} className="text-line">
+                          {line}
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="no-cv-message">
+                      <p>Sélectionnez un fichier CV pour commencer</p>
+                      <p className="hint">Formats acceptés : PDF, Word, Excel, PowerPoint, LaTeX, Texte</p>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
-          </div>
+          )}
         </div>
         {renderModal()}
       </>

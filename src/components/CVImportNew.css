@@ -689,3 +689,109 @@
   border: 2px dashed #667eea;
 }
 
+/* Onglets de mode d'import */
+.import-mode-tabs {
+  display: flex;
+  background: #f8f9fa;
+  border-bottom: 1px solid #e9ecef;
+  padding: 0;
+  flex-shrink: 0;
+}
+
+.mode-tab {
+  flex: 1;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  border-bottom: 3px solid transparent;
+  font-size: 14px;
+  font-weight: 500;
+  color: #6c757d;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.mode-tab:hover {
+  background: #e9ecef;
+  color: #495057;
+}
+
+.mode-tab.active {
+  color: #667eea;
+  border-bottom-color: #667eea;
+  background: white;
+}
+
+.mode-tab.active:hover {
+  background: white;
+}
+
+/* Conteneur pour l'import automatique */
+.auto-import-container {
+  flex: 1;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Sélecteur de fichier en mode embedded */
+.file-selector-embedded {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border-radius: 8px;
+  margin: 16px;
+  border: 2px dashed #ced4da;
+}
+
+.file-selector-embedded .file-input-label {
+  padding: 12px 24px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.file-selector-embedded .file-input-label:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+}
+
+/* Overlay du modal PDF drag */
+.pdf-drag-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(102, 126, 234, 0.1);
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  padding-top: 20px;
+  z-index: 100;
+  cursor: grab;
+}
+
+.pdf-drag-overlay:active {
+  cursor: grabbing;
+}
+
+.pdf-drag-overlay .drag-indicator {
+  position: relative;
+  top: 0;
+  right: 0;
+}
+
