@@ -9,22 +9,6 @@ interface FieldDefinition {
   description?: string;
 }
 
-interface ExtractedData {
-  tag: string;
-  name: string;
-  value: string;
-  confidence: number;
-  isNew: boolean;
-  suggestedType?: string;
-}
-
-interface ImageData {
-  description: string;
-  type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
-  suggestedTag?: string;
-  base64?: string;
-}
-
 export default async function handler(
   req: VercelRequest,
   res: VercelResponse
@@ -47,7 +31,6 @@ export default async function handler(
       textContent, 
       imageBase64, 
       existingFields, 
-      workingLanguage = 'fr',
       extractImages = true 
     } = req.body;
 
