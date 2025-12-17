@@ -1,6 +1,7 @@
 import { useState, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { storage } from '../utils/storage';
+import { api } from '../utils/api';
 import { UserDataField } from '../types/database';
 import './PDFFieldsImporter.css';
 
@@ -14,29 +15,46 @@ interface ExtractedTag {
   tag: string;
   value: string;
   count: number;
+  confidence?: number;
+  isNew?: boolean;
+}
+
+interface ExtractedImage {
+  description: string;
+  type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
+  suggestedTag?: string;
+  base64?: string;
 }
 
 interface ImportedFile {
   name: string;
   extractedTags: ExtractedTag[];
+  extractedImages?: ExtractedImage[];
   importedAt: string;
+  mode: 'template' | 'cv';
 }
+
+type ImportMode = 'template' | 'cv-ai';
 
 export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = false }: PDFFieldsImporterProps) => {
   const { user, setUser } = useAuth();
+  const [importMode, setImportMode] = useState<ImportMode>('cv-ai');
   const [importedFiles, setImportedFiles] = useState<ImportedFile[]>([]);
   const [currentFileText, setCurrentFileText] = useState<string>('');
+  const [currentFileImage, setCurrentFileImage] = useState<string>('');
   const [extractedTags, setExtractedTags] = useState<ExtractedTag[]>([]);
+  const [extractedImages, setExtractedImages] = useState<ExtractedImage[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingStatus, setProcessingStatus] = useState<string>('');
   const [showPreview, setShowPreview] = useState(true);
   const [selectedTags, setSelectedTags] = useState<Set<string>>(new Set());
   const [importLog, setImportLog] = useState<string[]>([]);
+  const [aiSummary, setAiSummary] = useState<string>('');
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Fonction pour extraire les tags entre accolades du texte
+  // Fonction pour extraire les tags entre accolades du texte (mode template)
   const extractTagsFromText = (text: string): ExtractedTag[] => {
-    // Pattern pour trouver les tags entre accolades: {TAG} ou {TAG:valeur}
     const tagPattern = /\{([^{}]+)\}/g;
     const tagsMap = new Map<string, { value: string; count: number }>();
     
@@ -46,21 +64,18 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       let tag = fullMatch;
       let value = '';
       
-      // Vérifier si le tag contient une valeur séparée par :
       if (fullMatch.includes(':')) {
         const parts = fullMatch.split(':');
         tag = parts[0].trim();
         value = parts.slice(1).join(':').trim();
       }
       
-      // Normaliser le tag (enlever les espaces, mettre en minuscules pour la comparaison)
       const normalizedTag = tag.trim();
       
       if (normalizedTag) {
         const existing = tagsMap.get(normalizedTag);
         if (existing) {
           existing.count++;
-          // Si on a une valeur et que l'existante est vide, mettre à jour
           if (value && !existing.value) {
             existing.value = value;
           }
@@ -73,7 +88,8 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     return Array.from(tagsMap.entries()).map(([tag, data]) => ({
       tag,
       value: data.value,
-      count: data.count
+      count: data.count,
+      isNew: false
     }));
   };
 
@@ -103,6 +119,46 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     }
   };
 
+  // Fonction pour convertir un PDF en image (première page)
+  const convertPdfToImage = async (file: File): Promise<string> => {
+    try {
+      const pdfjsLib = await import('pdfjs-dist');
+      pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+      
+      const arrayBuffer = await file.arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+      
+      // Rendre toutes les pages en images et les combiner
+      const images: string[] = [];
+      const maxPages = Math.min(pdf.numPages, 5); // Limiter à 5 pages max
+      
+      for (let i = 1; i <= maxPages; i++) {
+        const page = await pdf.getPage(i);
+        const scale = 2; // Haute résolution
+        const viewport = page.getViewport({ scale });
+        
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext('2d')!;
+        canvas.height = viewport.height;
+        canvas.width = viewport.width;
+        
+        await page.render({
+          canvasContext: context,
+          viewport: viewport,
+          canvas: canvas
+        } as any).promise;
+        
+        images.push(canvas.toDataURL('image/png'));
+      }
+      
+      // Retourner la première page pour l'analyse (ou combiner si nécessaire)
+      return images[0] || '';
+    } catch (error) {
+      console.error('Error converting PDF to image:', error);
+      return '';
+    }
+  };
+
   // Fonction pour lire le contenu d'un fichier texte
   const readTextFile = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -111,6 +167,121 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       reader.onerror = reject;
       reader.readAsText(file);
     });
+  };
+
+  // Fonction pour lire un fichier image en base64
+  const readImageAsBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string || '');
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // Traitement d'un fichier en mode template (extraction de tags)
+  const processTemplateFile = async (file: File, newLogs: string[]): Promise<ExtractedTag[]> => {
+    let text = '';
+    
+    if (file.type === 'application/pdf') {
+      newLogs.push(`📄 Extraction du texte de ${file.name}...`);
+      text = await extractPdfText(file);
+    } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.tex')) {
+      text = await readTextFile(file);
+    } else {
+      text = await readTextFile(file);
+    }
+    
+    if (text) {
+      setCurrentFileText(prev => prev + (prev ? '\n\n---\n\n' : '') + text);
+      const tags = extractTagsFromText(text);
+      newLogs.push(`✅ ${file.name}: ${tags.length} tags trouvés`);
+      return tags;
+    }
+    
+    return [];
+  };
+
+  // Traitement d'un fichier en mode CV avec IA
+  const processCVFileWithAI = async (file: File, newLogs: string[]): Promise<{ tags: ExtractedTag[], images: ExtractedImage[] }> => {
+    newLogs.push(`🤖 Analyse IA de ${file.name}...`);
+    setProcessingStatus(`🤖 Analyse IA de ${file.name}...`);
+    
+    let textContent = '';
+    let imageBase64 = '';
+    
+    // Extraire le texte et l'image du PDF
+    if (file.type === 'application/pdf') {
+      newLogs.push(`📄 Extraction du texte et des images...`);
+      setProcessingStatus(`📄 Extraction du texte et des images de ${file.name}...`);
+      
+      textContent = await extractPdfText(file);
+      imageBase64 = await convertPdfToImage(file);
+      
+      setCurrentFileText(prev => prev + (prev ? '\n\n---\n\n' : '') + textContent);
+      if (imageBase64) {
+        setCurrentFileImage(imageBase64);
+      }
+    } else if (file.type.startsWith('image/')) {
+      imageBase64 = await readImageAsBase64(file);
+      setCurrentFileImage(imageBase64);
+    } else {
+      textContent = await readTextFile(file);
+      setCurrentFileText(prev => prev + (prev ? '\n\n---\n\n' : '') + textContent);
+    }
+    
+    // Préparer les champs existants pour l'IA
+    const existingFields = (user?.data || []).map(f => ({
+      id: f.id,
+      name: f.name,
+      tag: f.tag,
+      type: f.type
+    }));
+    
+    newLogs.push(`🧠 Envoi à l'IA pour analyse approfondie...`);
+    setProcessingStatus(`🧠 Analyse approfondie par IA de ${file.name}...`);
+    
+    // Appeler l'API d'analyse IA
+    const result = await api.analyzeCVWithAI({
+      textContent,
+      imageBase64: imageBase64 || undefined,
+      existingFields,
+      workingLanguage: user?.baseLanguage || 'fr',
+      extractImages: true
+    });
+    
+    if (result.success) {
+      const tags: ExtractedTag[] = result.extractedData.map(d => ({
+        tag: d.tag,
+        value: d.value,
+        count: 1,
+        confidence: d.confidence,
+        isNew: d.isNew
+      }));
+      
+      newLogs.push(`✅ ${file.name}: ${tags.length} données extraites par l'IA`);
+      
+      if (result.summary) {
+        setAiSummary(result.summary);
+        newLogs.push(`📊 Résumé: ${result.summary.substring(0, 100)}...`);
+      }
+      
+      if (result.suggestions && result.suggestions.length > 0) {
+        setAiSuggestions(result.suggestions);
+      }
+      
+      if (result.tokensUsed) {
+        newLogs.push(`💰 Tokens utilisés: ${result.tokensUsed}`);
+      }
+      
+      return { tags, images: result.images || [] };
+    } else {
+      newLogs.push(`⚠️ Erreur IA: ${result.error}`);
+      newLogs.push(`📝 Tentative d'extraction manuelle...`);
+      
+      // Fallback: extraction basique si l'IA échoue
+      return { tags: [], images: [] };
+    }
   };
 
   // Traitement d'un fichier importé
@@ -125,44 +296,33 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       setProcessingStatus(`Traitement de ${file.name} (${i + 1}/${files.length})...`);
       
       try {
-        let text = '';
+        let tags: ExtractedTag[] = [];
+        let images: ExtractedImage[] = [];
         
-        if (file.type === 'application/pdf') {
-          newLogs.push(`📄 Extraction du texte de ${file.name}...`);
-          text = await extractPdfText(file);
-        } else if (file.type.startsWith('text/') || file.name.endsWith('.txt') || file.name.endsWith('.tex')) {
-          text = await readTextFile(file);
+        if (importMode === 'template') {
+          tags = await processTemplateFile(file, newLogs);
         } else {
-          // Essayer de lire comme texte
-          try {
-            text = await readTextFile(file);
-          } catch {
-            newLogs.push(`⚠️ Impossible de lire ${file.name}`);
-            continue;
-          }
+          const result = await processCVFileWithAI(file, newLogs);
+          tags = result.tags;
+          images = result.images;
         }
         
-        if (text) {
-          setCurrentFileText(prev => prev + (prev ? '\n\n---\n\n' : '') + text);
-          const tags = extractTagsFromText(text);
-          
-          newLogs.push(`✅ ${file.name}: ${tags.length} tags trouvés`);
-          
+        if (tags.length > 0 || images.length > 0) {
           // Ajouter le fichier à la liste des fichiers importés
           setImportedFiles(prev => [...prev, {
             name: file.name,
             extractedTags: tags,
-            importedAt: new Date().toISOString()
+            extractedImages: images,
+            importedAt: new Date().toISOString(),
+            mode: importMode === 'template' ? 'template' : 'cv'
           }]);
           
           // Fusionner les nouveaux tags avec les existants
           setExtractedTags(prev => {
             const mergedMap = new Map<string, ExtractedTag>();
             
-            // Ajouter les tags existants
             prev.forEach(t => mergedMap.set(t.tag.toLowerCase(), t));
             
-            // Ajouter ou mettre à jour avec les nouveaux tags
             tags.forEach(newTag => {
               const key = newTag.tag.toLowerCase();
               const existing = mergedMap.get(key);
@@ -171,6 +331,9 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
                 if (newTag.value && !existing.value) {
                   existing.value = newTag.value;
                 }
+                if (newTag.confidence && (!existing.confidence || newTag.confidence > existing.confidence)) {
+                  existing.confidence = newTag.confidence;
+                }
               } else {
                 mergedMap.set(key, { ...newTag });
               }
@@ -178,6 +341,11 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
             
             return Array.from(mergedMap.values());
           });
+          
+          // Fusionner les images
+          if (images.length > 0) {
+            setExtractedImages(prev => [...prev, ...images]);
+          }
         }
       } catch (error) {
         console.error(`Error processing ${file.name}:`, error);
@@ -189,7 +357,6 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     setIsProcessing(false);
     setProcessingStatus('');
     
-    // Réinitialiser l'input file
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
@@ -210,21 +377,19 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     existingFields: UserDataField[],
     tag: string,
     value: string,
-    workingLanguage: string
+    workingLanguage: string,
+    fieldType: string = 'text'
   ): { fields: UserDataField[]; created: boolean; version: number } => {
     const now = new Date().toISOString();
     
-    // Chercher un champ existant par tag (insensible à la casse)
     const existingFieldIndex = existingFields.findIndex(
       f => f.tag.toLowerCase() === tag.toLowerCase()
     );
     
     if (existingFieldIndex >= 0) {
-      // Champ existant - trouver la version disponible
       const field = { ...existingFields[existingFieldIndex] };
       const version = findAvailableVersion(field);
       
-      // Ajouter la valeur dans aiVersions
       const existingVersionIndex = field.aiVersions.findIndex(v => v.version === version);
       if (existingVersionIndex >= 0) {
         field.aiVersions[existingVersionIndex].value = value;
@@ -242,12 +407,11 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       
       return { fields: updatedFields, created: false, version };
     } else {
-      // Nouveau champ - créer avec la valeur en version 1
       const newField: UserDataField = {
         id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: formatTagAsName(tag),
         tag: tag,
-        type: 'text',
+        type: fieldType as any,
         baseLanguage: workingLanguage,
         languageVersions: [],
         aiVersions: value ? [{
@@ -265,15 +429,13 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
 
   // Formater un tag en nom lisible
   const formatTagAsName = (tag: string): string => {
-    // Séparer par les majuscules, chiffres et underscores
     let formatted = tag
       .replace(/([A-Z])/g, ' $1')
       .replace(/([0-9]+)/g, ' $1 ')
       .replace(/_/g, ' ')
       .trim();
     
-    // Capitaliser la première lettre
-    return formatted.charAt(0).toUpperCase() + formatted.slice(1).toLowerCase();
+    return formatted.charAt(0).toUpperCase() + formatted.slice(1);
   };
 
   // Importer les tags sélectionnés comme champs
@@ -287,7 +449,6 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     let currentFields = user.data || [];
     const logs: string[] = [];
     
-    // Filtrer les tags à importer
     const tagsToImport = selectedTags.size > 0 
       ? extractedTags.filter(t => selectedTags.has(t.tag))
       : extractedTags;
@@ -323,7 +484,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     setProcessingStatus('');
   };
 
-  // Importer uniquement les champs (sans valeurs) depuis les tags
+  // Importer uniquement les champs (sans valeurs)
   const handleImportFieldsOnly = async () => {
     if (!user || !setUser) return;
     
@@ -339,7 +500,6 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       : extractedTags;
     
     for (const tagData of tagsToImport) {
-      // Vérifier si le champ existe déjà
       const exists = currentFields.some(f => f.tag.toLowerCase() === tagData.tag.toLowerCase());
       
       if (!exists) {
@@ -397,9 +557,13 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
   const handleReset = () => {
     setImportedFiles([]);
     setCurrentFileText('');
+    setCurrentFileImage('');
     setExtractedTags([]);
+    setExtractedImages([]);
     setSelectedTags(new Set());
     setImportLog([]);
+    setAiSummary('');
+    setAiSuggestions([]);
   };
 
   // Obtenir le statut d'un tag par rapport aux champs existants
@@ -413,14 +577,49 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     return hasValue ? 'has-value' : 'exists';
   };
 
+  // Obtenir l'indicateur de confiance
+  const getConfidenceIndicator = (confidence?: number): string => {
+    if (!confidence) return '';
+    if (confidence >= 0.9) return '🟢';
+    if (confidence >= 0.7) return '🟡';
+    if (confidence >= 0.5) return '🟠';
+    return '🔴';
+  };
+
   return (
     <div className={`pdf-fields-importer ${embeddedMode ? 'embedded' : ''}`}>
       <div className="importer-header">
-        <h3>📥 Import automatique de champs</h3>
+        <h3>📥 Import de CV</h3>
         <p className="importer-description">
-          Importez des PDF contenant des tags entre accolades <code>{'{TAG}'}</code> pour créer automatiquement les champs.
+          Importez des templates avec tags <code>{'{TAG}'}</code> ou des vrais CV analysés par IA.
         </p>
       </div>
+
+      {/* Sélection du mode d'import */}
+      <div className="import-mode-selector">
+        <button 
+          className={`mode-button ${importMode === 'cv-ai' ? 'active' : ''}`}
+          onClick={() => setImportMode('cv-ai')}
+        >
+          🤖 CV réel (Analyse IA)
+        </button>
+        <button 
+          className={`mode-button ${importMode === 'template' ? 'active' : ''}`}
+          onClick={() => setImportMode('template')}
+        >
+          📋 Template (Tags)
+        </button>
+      </div>
+
+      {importMode === 'cv-ai' && (
+        <div className="ai-info-banner">
+          <span className="ai-icon">🧠</span>
+          <div className="ai-info-text">
+            <strong>Mode IA activé</strong>
+            <p>L'IA analysera le CV et extraira automatiquement toutes les informations (texte, images, graphiques) vers les champs existants ou créera de nouveaux champs.</p>
+          </div>
+        </div>
+      )}
 
       <div className="importer-content">
         {/* Zone d'upload */}
@@ -429,13 +628,15 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
             ref={fileInputRef}
             type="file"
             id="pdf-import-input"
-            accept=".pdf,.txt,.tex"
+            accept={importMode === 'template' ? '.pdf,.txt,.tex' : '.pdf,.png,.jpg,.jpeg,.webp'}
             multiple
             onChange={(e) => handleFileUpload(e.target.files)}
             className="file-input-hidden"
           />
           <label htmlFor="pdf-import-input" className="upload-button">
-            📁 Choisir des fichiers (PDF, TXT, TEX)
+            {importMode === 'cv-ai' 
+              ? '📁 Importer des CV (PDF, Images)' 
+              : '📁 Importer des templates (PDF, TXT)'}
           </label>
           
           {importedFiles.length > 0 && (
@@ -453,6 +654,22 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
           </div>
         )}
 
+        {/* Résumé IA */}
+        {aiSummary && (
+          <div className="ai-summary">
+            <h4>📊 Analyse IA</h4>
+            <p>{aiSummary}</p>
+            {aiSuggestions.length > 0 && (
+              <div className="ai-suggestions">
+                <strong>💡 Suggestions:</strong>
+                <ul>
+                  {aiSuggestions.map((s, i) => <li key={i}>{s}</li>)}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+
         {/* Liste des fichiers importés */}
         {importedFiles.length > 0 && (
           <div className="imported-files">
@@ -461,7 +678,26 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
               {importedFiles.map((file, idx) => (
                 <div key={idx} className="imported-file-item">
                   <span className="file-name">{file.name}</span>
-                  <span className="file-tags-count">{file.extractedTags.length} tags</span>
+                  <span className="file-mode">{file.mode === 'cv' ? '🤖' : '📋'}</span>
+                  <span className="file-tags-count">{file.extractedTags.length} données</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Images extraites */}
+        {extractedImages.length > 0 && (
+          <div className="extracted-images-section">
+            <h4>🖼️ Éléments visuels détectés ({extractedImages.length})</h4>
+            <div className="images-list">
+              {extractedImages.map((img, idx) => (
+                <div key={idx} className="image-item">
+                  <span className="image-type">{img.type}</span>
+                  <span className="image-description">{img.description}</span>
+                  {img.suggestedTag && (
+                    <span className="image-tag">→ {img.suggestedTag}</span>
+                  )}
                 </div>
               ))}
             </div>
@@ -472,27 +708,35 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
         {extractedTags.length > 0 && (
           <div className="extracted-tags-section">
             <div className="tags-header">
-              <h4>🏷️ Tags trouvés ({extractedTags.length})</h4>
+              <h4>🏷️ Données extraites ({extractedTags.length})</h4>
               <button onClick={handleSelectAll} className="select-all-button">
                 {selectedTags.size === extractedTags.length ? '☐ Désélectionner tout' : '☑ Sélectionner tout'}
               </button>
             </div>
             
             <div className="tags-legend">
-              <span className="legend-item new">🆕 Nouveau</span>
+              <span className="legend-item new">🆕 Nouveau champ</span>
               <span className="legend-item exists">📝 Existant (vide)</span>
-              <span className="legend-item has-value">✅ Existant (avec valeur)</span>
+              <span className="legend-item has-value">✅ Existant (rempli)</span>
+              {importMode === 'cv-ai' && (
+                <>
+                  <span className="legend-item confidence">🟢 Confiance haute</span>
+                  <span className="legend-item confidence">🟡 Moyenne</span>
+                  <span className="legend-item confidence">🔴 Basse</span>
+                </>
+              )}
             </div>
             
             <div className="tags-list">
               {extractedTags.map((tagData, idx) => {
                 const status = getTagStatus(tagData.tag);
                 const isSelected = selectedTags.has(tagData.tag);
+                const confidenceIcon = getConfidenceIndicator(tagData.confidence);
                 
                 return (
                   <div 
                     key={idx} 
-                    className={`tag-item ${status} ${isSelected ? 'selected' : ''}`}
+                    className={`tag-item ${status} ${isSelected ? 'selected' : ''} ${tagData.isNew ? 'ai-new' : ''}`}
                     onClick={() => toggleTagSelection(tagData.tag)}
                   >
                     <input
@@ -501,13 +745,17 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
                       onChange={() => {}}
                       className="tag-checkbox"
                     />
-                    <span className="tag-name">{tagData.tag}</span>
+                    <span className="tag-name">
+                      {tagData.tag}
+                      {tagData.isNew && <span className="new-badge">nouveau</span>}
+                    </span>
                     {tagData.value && (
                       <span className="tag-value" title={tagData.value}>
-                        = "{tagData.value.substring(0, 30)}{tagData.value.length > 30 ? '...' : ''}"
+                        = "{tagData.value.substring(0, 50)}{tagData.value.length > 50 ? '...' : ''}"
                       </span>
                     )}
                     <span className={`tag-status ${status}`}>
+                      {confidenceIcon}
                       {status === 'new' && '🆕'}
                       {status === 'exists' && '📝'}
                       {status === 'has-value' && '✅'}
@@ -524,15 +772,30 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
                 className="import-button fields-only"
                 disabled={isProcessing || extractedTags.length === 0}
               >
-                📋 Créer les champs (sans valeurs)
+                📋 Créer les champs uniquement
               </button>
               <button 
                 onClick={handleImportSelectedTags} 
                 className="import-button with-values"
                 disabled={isProcessing || extractedTags.length === 0}
               >
-                📥 Importer avec valeurs
+                📥 Importer champs + valeurs
               </button>
+            </div>
+          </div>
+        )}
+
+        {/* Aperçu de l'image du CV */}
+        {currentFileImage && (
+          <div className="image-preview-section">
+            <div className="preview-header">
+              <h4>🖼️ Aperçu du CV</h4>
+              <button onClick={() => setCurrentFileImage('')} className="hide-preview-button">
+                Masquer
+              </button>
+            </div>
+            <div className="image-preview">
+              <img src={currentFileImage} alt="CV Preview" />
             </div>
           </div>
         )}
@@ -541,7 +804,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
         {showPreview && currentFileText && (
           <div className="text-preview-section">
             <div className="preview-header">
-              <h4>👁️ Aperçu du texte extrait</h4>
+              <h4>👁️ Texte extrait</h4>
               <button onClick={() => setShowPreview(false)} className="hide-preview-button">
                 Masquer
               </button>
@@ -549,7 +812,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
             <div className="text-preview">
               {currentFileText.split('\n').map((line, idx) => (
                 <div key={idx} className="preview-line">
-                  {highlightTags(line)}
+                  {importMode === 'template' ? highlightTags(line) : line}
                 </div>
               ))}
             </div>
@@ -558,7 +821,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
 
         {!showPreview && currentFileText && (
           <button onClick={() => setShowPreview(true)} className="show-preview-button">
-            👁️ Afficher l'aperçu
+            👁️ Afficher le texte
           </button>
         )}
 
@@ -594,11 +857,9 @@ const highlightTags = (text: string): React.ReactNode => {
   let match;
   
   while ((match = tagPattern.exec(text)) !== null) {
-    // Ajouter le texte avant le tag
     if (match.index > lastIndex) {
       parts.push(text.substring(lastIndex, match.index));
     }
-    // Ajouter le tag surligné
     parts.push(
       <span key={match.index} className="highlighted-tag">
         {match[0]}
@@ -607,7 +868,6 @@ const highlightTags = (text: string): React.ReactNode => {
     lastIndex = match.index + match[0].length;
   }
   
-  // Ajouter le reste du texte
   if (lastIndex < text.length) {
     parts.push(text.substring(lastIndex));
   }

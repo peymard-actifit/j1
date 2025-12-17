@@ -143,4 +143,69 @@ export const api = {
       return { success: false, text: '' };
     }
   },
+
+  // CV Analysis with AI
+  async analyzeCVWithAI(params: {
+    textContent?: string;
+    imageBase64?: string;
+    existingFields: Array<{ id: string; name: string; tag: string; type: string }>;
+    workingLanguage?: string;
+    extractImages?: boolean;
+  }): Promise<{
+    success: boolean;
+    extractedData: Array<{
+      tag: string;
+      name: string;
+      value: string;
+      confidence: number;
+      isNew: boolean;
+      suggestedType?: string;
+    }>;
+    images: Array<{
+      description: string;
+      type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
+      suggestedTag?: string;
+      base64?: string;
+    }>;
+    summary?: string;
+    suggestions?: string[];
+    error?: string;
+    tokensUsed?: number;
+  }> {
+    try {
+      const response = await fetch(`${API_BASE}/api/analyze-cv`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params),
+      });
+      
+      const result = await response.json();
+      
+      if (!response.ok) {
+        return {
+          success: false,
+          extractedData: [],
+          images: [],
+          error: result.error || 'Erreur lors de l\'analyse'
+        };
+      }
+      
+      return {
+        success: result.success,
+        extractedData: result.extractedData || [],
+        images: result.images || [],
+        summary: result.summary,
+        suggestions: result.suggestions,
+        error: result.error,
+        tokensUsed: result.tokensUsed
+      };
+    } catch (error: any) {
+      return {
+        success: false,
+        extractedData: [],
+        images: [],
+        error: error.message || 'Erreur de connexion'
+      };
+    }
+  },
 };
