@@ -198,7 +198,7 @@ export default async function handler(
 
     if (apiError || !affindaData) {
       const parsedError = parseAPIError(apiError, 'affinda');
-      logAPI('affinda', 'Parsing failed', { error: parsedError, retryCount });
+      logAPI('affinda', 'Parsing failed', { error: parsedError, retryCount, apiError: apiError?.message });
       
       return res.status(200).json({
         success: false,
@@ -207,12 +207,25 @@ export default async function handler(
       });
     }
 
+    // Log la réponse brute pour debug
+    logAPI('affinda', 'Raw response received', { 
+      hasData: !!affindaData.data,
+      hasError: !!affindaData.error,
+      meta: affindaData.meta
+    });
+
     if (affindaData.error) {
+      logAPI('affinda', 'Affinda returned error in response', { 
+        errorCode: affindaData.error.errorCode,
+        errorDetail: affindaData.error.errorDetail,
+        fullError: affindaData.error
+      });
       return res.status(200).json({
         success: false,
         error: {
           code: 'PARSING_ERROR',
-          message: affindaData.error.errorDetail || 'Erreur lors du parsing',
+          message: affindaData.error.errorDetail || affindaData.error.errorCode || 'Erreur lors du parsing',
+          details: JSON.stringify(affindaData.error),
           provider: 'affinda'
         },
         extractedData: []
