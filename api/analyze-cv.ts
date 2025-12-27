@@ -9,7 +9,7 @@ import {
   parseAPIError,
   safeJSONParse,
   logAPI
-} from './_utils';
+} from './_utils.js';
 
 interface FieldDefinition {
   id: string;

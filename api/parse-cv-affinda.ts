@@ -7,7 +7,7 @@ import {
   isRetryableError, 
   parseAPIError,
   logAPI 
-} from './_utils';
+} from './_utils.js';
 
 // Types Affinda pour une meilleure typage
 interface AffindaEducation {

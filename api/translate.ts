@@ -6,7 +6,7 @@ import {
   isRetryableError, 
   parseAPIError,
   logAPI 
-} from './_utils';
+} from './_utils.js';
 
 // Mapping des codes de langue pour DeepL
 const DEEPL_LANG_MAP: Record<string, string> = {
