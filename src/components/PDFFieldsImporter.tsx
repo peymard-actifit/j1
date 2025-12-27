@@ -299,9 +299,15 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
           setAiSuggestions(result.suggestions);
         }
         
+        // Afficher les métriques si disponibles
+        if (result.metrics?.total?.duration) {
+          newLogs.push(`⏱️ Durée totale: ${result.metrics.total.duration}ms`);
+        }
+        
         return { tags, images: result.images || [] };
       } else {
-        newLogs.push(`⚠️ Erreur: ${result.error}`);
+        const errorMsg = result.error?.message || 'Erreur inconnue';
+        newLogs.push(`⚠️ Erreur: ${errorMsg}`);
         return { tags: [], images: [] };
       }
     } else if (aiProvider === 'affinda') {
@@ -328,9 +334,18 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
           newLogs.push(`📊 Résumé: ${result.summary}`);
         }
         
+        // Afficher les métriques Affinda
+        if (result.metrics?.duration) {
+          newLogs.push(`⏱️ Durée: ${result.metrics.duration}ms`);
+        }
+        if (result.isResumeProbability !== undefined) {
+          newLogs.push(`🎯 Confiance CV: ${Math.round(result.isResumeProbability * 100)}%`);
+        }
+        
         return { tags, images: [] };
       } else {
-        newLogs.push(`⚠️ Erreur Affinda: ${result.error}`);
+        const errorMsg = result.error?.message || 'Erreur inconnue';
+        newLogs.push(`⚠️ Erreur Affinda: ${errorMsg}`);
         return { tags: [], images: [] };
       }
     } else {
@@ -363,13 +378,25 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
           setAiSuggestions(result.suggestions);
         }
         
-        if (result.tokensUsed) {
-          newLogs.push(`💰 Tokens utilisés: ${result.tokensUsed}`);
+        // Afficher les métriques OpenAI
+        if (result.metrics) {
+          const metricsLog: string[] = [];
+          if (result.metrics.tokensUsed) metricsLog.push(`${result.metrics.tokensUsed} tokens`);
+          if (result.metrics.duration) metricsLog.push(`${result.metrics.duration}ms`);
+          if (result.metrics.model) metricsLog.push(result.metrics.model);
+          if (metricsLog.length > 0) {
+            newLogs.push(`💰 ${metricsLog.join(' | ')}`);
+          }
+        }
+        
+        if (result.detectedLanguage) {
+          newLogs.push(`🌐 Langue détectée: ${result.detectedLanguage.toUpperCase()}`);
         }
         
         return { tags, images: result.images || [] };
       } else {
-        newLogs.push(`⚠️ Erreur OpenAI: ${result.error}`);
+        const errorMsg = result.error?.message || 'Erreur inconnue';
+        newLogs.push(`⚠️ Erreur OpenAI: ${errorMsg}`);
         return { tags: [], images: [] };
       }
     }

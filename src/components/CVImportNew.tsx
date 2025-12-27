@@ -124,10 +124,25 @@ export const CVImportNew = ({ onCancel, embeddedMode = false }: CVImportNewProps
         if (selectedFile.type === 'application/pdf') {
           setExtractingPdfText(true);
           try {
-            // Essayer d'abord avec l'API documint (si disponible)
+            // Essayer d'abord avec l'API Vision (si disponible)
             try {
               const { api } = await import('../utils/api');
-              const result = await api.extractPdfText(content);
+              // Convertir le PDF en image pour l'OCR Vision
+              const pdfjsLib = await import('pdfjs-dist');
+              pdfjsLib.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+              const arrayBuffer = await selectedFile.arrayBuffer();
+              const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+              const page = await pdf.getPage(1);
+              const scale = 2;
+              const viewport = page.getViewport({ scale });
+              const canvas = document.createElement('canvas');
+              const context = canvas.getContext('2d')!;
+              canvas.height = viewport.height;
+              canvas.width = viewport.width;
+              await page.render({ canvasContext: context, viewport, canvas } as any).promise;
+              const imageBase64 = canvas.toDataURL('image/png');
+              
+              const result = await api.extractPdfText({ imageBase64, extractionMode: 'full' });
               if (result && result.success && result.text && result.text.trim().length > 0) {
                 setPdfTextContent(result.text);
                 setExtractingPdfText(false);

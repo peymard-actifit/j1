@@ -2,199 +2,345 @@ import { User, CVFormat } from '../types/database';
 
 const API_BASE = import.meta.env.VITE_API_BASE || '';
 
-export const api = {
-  // Users
-  async getUser(id: string): Promise<User | null> {
-    try {
-      const response = await fetch(`${API_BASE}/api/users/${id}`);
-      if (!response.ok) return null;
-      return await response.json();
-    } catch {
-      return null;
+// Types pour les erreurs API unifiées
+export interface APIError {
+  code: string;
+  message: string;
+  details?: string;
+  retryable: boolean;
+  provider?: string;
+}
+
+// Types pour les métriques
+export interface APIMetrics {
+  duration?: number;
+  tokensUsed?: number;
+  charactersUsed?: number;
+  retryCount?: number;
+  model?: string;
+}
+
+// Helper pour les appels API avec gestion d'erreur unifiée
+async function apiCall<T>(
+  url: string, 
+  options: RequestInit = {}
+): Promise<{ data?: T; error?: APIError }> {
+  try {
+    const response = await fetch(`${API_BASE}${url}`, {
+      ...options,
+      headers: {
+        'Content-Type': 'application/json',
+        ...options.headers,
+      },
+    });
+    
+    const data = await response.json();
+    
+    if (!response.ok || data.error) {
+      return { 
+        data, 
+        error: data.error || { 
+          code: 'HTTP_ERROR', 
+          message: `HTTP ${response.status}`, 
+          retryable: response.status >= 500 
+        } 
+      };
     }
+    
+    return { data };
+  } catch (error: any) {
+    return { 
+      error: { 
+        code: 'NETWORK_ERROR', 
+        message: error.message || 'Erreur réseau', 
+        retryable: true 
+      } 
+    };
+  }
+}
+
+export const api = {
+  // =====================
+  // USERS
+  // =====================
+  async getUser(id: string): Promise<User | null> {
+    const { data } = await apiCall<User>(`/api/users/${id}`);
+    return data || null;
   },
 
   async getUserByEmail(email: string): Promise<User | null> {
-    try {
-      const response = await fetch(`${API_BASE}/api/users?email=${encodeURIComponent(email)}`);
-      if (!response.ok) return null;
-      return await response.json();
-    } catch {
-      return null;
-    }
+    const { data } = await apiCall<User>(`/api/users?email=${encodeURIComponent(email)}`);
+    return data || null;
   },
 
   async createUser(user: User): Promise<User> {
-    const response = await fetch(`${API_BASE}/api/users`, {
+    const { data, error } = await apiCall<User>('/api/users', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user),
     });
-    if (!response.ok) throw new Error('Failed to create user');
-    return await response.json();
+    if (error) throw new Error(error.message);
+    return data!;
   },
 
   async updateUser(id: string, user: User): Promise<User> {
-    const response = await fetch(`${API_BASE}/api/users/${id}`, {
+    const { data, error } = await apiCall<User>(`/api/users/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(user),
     });
-    if (!response.ok) throw new Error('Failed to update user');
-    return await response.json();
+    if (error) throw new Error(error.message);
+    return data!;
   },
 
   async deleteAllUsers(): Promise<void> {
-    const response = await fetch(`${API_BASE}/api/users`, {
-      method: 'DELETE',
-    });
-    if (!response.ok) throw new Error('Failed to delete users');
+    const { error } = await apiCall('/api/users', { method: 'DELETE' });
+    if (error) throw new Error(error.message);
   },
 
-  // CV Formats
+  // =====================
+  // CV FORMATS
+  // =====================
   async getCVFormats(filters?: {
     country?: string;
     targetRecipient?: string;
     search?: string;
   }): Promise<CVFormat[]> {
-    try {
-      const params = new URLSearchParams();
-      if (filters?.country) params.append('country', filters.country);
-      if (filters?.targetRecipient) params.append('targetRecipient', filters.targetRecipient);
-      if (filters?.search) params.append('search', filters.search);
-      
-      const response = await fetch(`${API_BASE}/api/cv-formats?${params}`);
-      if (!response.ok) return [];
-      return await response.json();
-    } catch {
-      return [];
-    }
+    const params = new URLSearchParams();
+    if (filters?.country) params.append('country', filters.country);
+    if (filters?.targetRecipient) params.append('targetRecipient', filters.targetRecipient);
+    if (filters?.search) params.append('search', filters.search);
+    
+    const { data } = await apiCall<CVFormat[]>(`/api/cv-formats?${params}`);
+    return data || [];
   },
 
   async getCVFormat(id: string): Promise<CVFormat | null> {
-    try {
-      const response = await fetch(`${API_BASE}/api/cv-formats/${id}`);
-      if (!response.ok) return null;
-      return await response.json();
-    } catch {
-      return null;
-    }
+    const { data } = await apiCall<CVFormat>(`/api/cv-formats/${id}`);
+    return data || null;
   },
 
   async createCVFormat(format: CVFormat): Promise<CVFormat> {
-    const response = await fetch(`${API_BASE}/api/cv-formats`, {
+    const { data, error } = await apiCall<CVFormat>('/api/cv-formats', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(format),
     });
-    if (!response.ok) throw new Error('Failed to create CV format');
-    return await response.json();
+    if (error) throw new Error(error.message);
+    return data!;
   },
 
   async updateCVFormat(id: string, format: CVFormat): Promise<CVFormat> {
-    const response = await fetch(`${API_BASE}/api/cv-formats/${id}`, {
+    const { data, error } = await apiCall<CVFormat>(`/api/cv-formats/${id}`, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(format),
     });
-    if (!response.ok) throw new Error('Failed to update CV format');
-    return await response.json();
+    if (error) throw new Error(error.message);
+    return data!;
   },
 
   async deleteCVFormat(id: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/api/cv-formats/${id}`, {
-      method: 'DELETE',
+    const { error } = await apiCall(`/api/cv-formats/${id}`, { method: 'DELETE' });
+    if (error) throw new Error(error.message);
+  },
+
+  // =====================
+  // TRANSLATION (DeepL optimisé)
+  // =====================
+  
+  // Traduction simple (une seule chaîne) - pour compatibilité avec l'existant
+  async translate(
+    text: string, 
+    targetLang: string, 
+    sourceLang?: string,
+    options?: {
+      formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less';
+      preserveFormatting?: boolean;
+      context?: string;
+    }
+  ): Promise<{ 
+    success: boolean; 
+    text: string; 
+    detectedLang?: string;
+    metrics?: APIMetrics;
+    error?: APIError;
+  }> {
+    const { data, error } = await apiCall<{
+      success: boolean;
+      translatedText: string | string[];
+      detectedSourceLang?: string;
+      metrics?: APIMetrics;
+      error?: APIError;
+    }>('/api/translate', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        text, 
+        targetLang, 
+        sourceLang,
+        ...options 
+      }),
     });
-    if (!response.ok) throw new Error('Failed to delete CV format');
-  },
-
-  // Translation
-  async translate(text: string, targetLang: string, sourceLang: string): Promise<{ success: boolean; text: string }> {
-    try {
-      const response = await fetch(`${API_BASE}/api/translate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text, targetLang, sourceLang }),
-      });
-      if (!response.ok) {
-        return { success: false, text: text };
-      }
-      const result = await response.json();
-      return { success: true, text: result.translatedText || text };
-    } catch {
-      return { success: false, text: text };
+    
+    if (error || !data?.success) {
+      return { 
+        success: false, 
+        text: text,
+        error: error || data?.error 
+      };
     }
+    
+    // Toujours retourner une chaîne pour la traduction simple
+    const translatedText = Array.isArray(data.translatedText) 
+      ? data.translatedText[0] || text 
+      : data.translatedText;
+    
+    return { 
+      success: true, 
+      text: translatedText,
+      detectedLang: data.detectedSourceLang,
+      metrics: data.metrics
+    };
   },
 
-  // PDF extraction
-  async extractPdfText(fileContent: string): Promise<{ success: boolean; text: string }> {
-    try {
-      const response = await fetch(`${API_BASE}/api/extract-pdf-text`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fileContent }),
-      });
-      if (!response.ok) {
-        return { success: false, text: '' };
-      }
-      const result = await response.json();
-      return { success: true, text: result.text || '' };
-    } catch {
-      return { success: false, text: '' };
+  // Traduction batch optimisée (plusieurs chaînes en une seule requête)
+  async translateBatch(
+    texts: string[],
+    targetLang: string,
+    sourceLang?: string,
+    options?: {
+      formality?: 'default' | 'more' | 'less' | 'prefer_more' | 'prefer_less';
+      preserveFormatting?: boolean;
+      context?: string;
     }
+  ): Promise<{ 
+    success: boolean; 
+    texts: string[]; 
+    detectedLang?: string;
+    metrics?: APIMetrics;
+    error?: APIError;
+  }> {
+    const { data, error } = await apiCall<{
+      success: boolean;
+      translatedText: string | string[];
+      detectedSourceLang?: string;
+      metrics?: APIMetrics;
+      error?: APIError;
+    }>('/api/translate', {
+      method: 'POST',
+      body: JSON.stringify({ 
+        text: texts, 
+        targetLang, 
+        sourceLang,
+        ...options 
+      }),
+    });
+    
+    if (error || !data?.success) {
+      return { 
+        success: false, 
+        texts: texts,
+        error: error || data?.error 
+      };
+    }
+    
+    const translatedTexts = Array.isArray(data.translatedText) 
+      ? data.translatedText 
+      : [data.translatedText];
+    
+    return {
+      success: true,
+      texts: translatedTexts,
+      detectedLang: data.detectedSourceLang,
+      metrics: data.metrics
+    };
   },
 
-  // AI Rephrase (reformulation)
+  // =====================
+  // PDF EXTRACTION (OpenAI Vision)
+  // =====================
+  async extractPdfText(params: {
+    fileContent?: string;
+    imageBase64?: string;
+    existingText?: string;
+    extractionMode?: 'ocr' | 'enhance' | 'full';
+  }): Promise<{ 
+    success: boolean; 
+    text: string;
+    confidence?: number;
+    method?: string;
+    metrics?: APIMetrics;
+    error?: APIError;
+  }> {
+    const { data, error } = await apiCall<{
+      success: boolean;
+      text: string;
+      confidence?: number;
+      method?: string;
+      metrics?: APIMetrics;
+      error?: APIError;
+    }>('/api/extract-pdf-text', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    
+    return {
+      success: data?.success || false,
+      text: data?.text || '',
+      confidence: data?.confidence,
+      method: data?.method,
+      metrics: data?.metrics,
+      error: error || data?.error
+    };
+  },
+
+  // =====================
+  // AI REPHRASE (OpenAI optimisé)
+  // =====================
   async rephraseWithAI(params: {
     text: string;
     language: string;
     fieldName?: string;
     context?: boolean;
+    style?: 'professional' | 'concise' | 'impactful' | 'detailed' | 'creative';
+    preserveKeywords?: string[];
+    maxLength?: number;
   }): Promise<{
     success: boolean;
     rephrasedText: string;
-    error?: string;
-    tokensUsed?: number;
+    originalText?: string;
+    style?: string;
+    metrics?: APIMetrics;
+    error?: APIError;
   }> {
-    try {
-      const response = await fetch(`${API_BASE}/api/rephrase`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          rephrasedText: params.text,
-          error: result.error || 'Erreur lors de la reformulation'
-        };
-      }
-      
-      return {
-        success: result.success,
-        rephrasedText: result.rephrasedText || params.text,
-        error: result.error,
-        tokensUsed: result.tokensUsed
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        rephrasedText: params.text,
-        error: error.message || 'Erreur de connexion'
-      };
-    }
+    const { data, error } = await apiCall<{
+      success: boolean;
+      rephrasedText: string;
+      originalText?: string;
+      style?: string;
+      metrics?: APIMetrics;
+      error?: APIError;
+    }>('/api/rephrase', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    
+    return {
+      success: data?.success || false,
+      rephrasedText: data?.rephrasedText || params.text,
+      originalText: data?.originalText,
+      style: data?.style,
+      metrics: data?.metrics,
+      error: error || data?.error
+    };
   },
 
-  // CV Analysis with AI (OpenAI)
+  // =====================
+  // CV ANALYSIS (OpenAI optimisé)
+  // =====================
   async analyzeCVWithAI(params: {
     textContent?: string;
     imageBase64?: string;
     existingFields: Array<{ id: string; name: string; tag: string; type: string }>;
     workingLanguage?: string;
     extractImages?: boolean;
+    analysisDepth?: 'quick' | 'full' | 'deep';
   }): Promise<{
     success: boolean;
     extractedData: Array<{
@@ -204,56 +350,42 @@ export const api = {
       confidence: number;
       isNew: boolean;
       suggestedType?: string;
+      category?: string;
     }>;
     images: Array<{
       description: string;
       type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
       suggestedTag?: string;
-      base64?: string;
+      location?: string;
     }>;
     summary?: string;
     suggestions?: string[];
-    error?: string;
-    tokensUsed?: number;
+    rawTextQuality?: string;
+    detectedLanguage?: string;
+    metrics?: APIMetrics;
+    error?: APIError;
   }> {
-    try {
-      const response = await fetch(`${API_BASE}/api/analyze-cv`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          extractedData: [],
-          images: [],
-          error: result.error || 'Erreur lors de l\'analyse'
-        };
-      }
-      
-      return {
-        success: result.success,
-        extractedData: result.extractedData || [],
-        images: result.images || [],
-        summary: result.summary,
-        suggestions: result.suggestions,
-        error: result.error,
-        tokensUsed: result.tokensUsed
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        extractedData: [],
-        images: [],
-        error: error.message || 'Erreur de connexion'
-      };
-    }
+    const { data, error } = await apiCall<any>('/api/analyze-cv', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    
+    return {
+      success: data?.success || false,
+      extractedData: data?.extractedData || [],
+      images: data?.images || [],
+      summary: data?.summary,
+      suggestions: data?.suggestions,
+      rawTextQuality: data?.rawTextQuality,
+      detectedLanguage: data?.detectedLanguage,
+      metrics: data?.metrics,
+      error: error || data?.error
+    };
   },
 
-  // CV Parsing with Affinda (Professional Resume Parser)
+  // =====================
+  // CV PARSING AFFINDA (optimisé)
+  // =====================
   async parseCVWithAffinda(params: {
     fileBase64?: string;
     fileName?: string;
@@ -269,45 +401,33 @@ export const api = {
       isNew: boolean;
       suggestedType: string;
       source: string;
+      category?: string;
     }>;
     rawData?: any;
     summary?: string;
-    error?: string;
+    isResumeProbability?: number;
+    metrics?: APIMetrics;
+    error?: APIError;
   }> {
-    try {
-      const response = await fetch(`${API_BASE}/api/parse-cv-affinda`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(params),
-      });
-      
-      const result = await response.json();
-      
-      if (!response.ok) {
-        return {
-          success: false,
-          extractedData: [],
-          error: result.error || 'Erreur lors du parsing Affinda'
-        };
-      }
-      
-      return {
-        success: result.success,
-        extractedData: result.extractedData || [],
-        rawData: result.rawData,
-        summary: result.summary,
-        error: result.error
-      };
-    } catch (error: any) {
-      return {
-        success: false,
-        extractedData: [],
-        error: error.message || 'Erreur de connexion à Affinda'
-      };
-    }
+    const { data, error } = await apiCall<any>('/api/parse-cv-affinda', {
+      method: 'POST',
+      body: JSON.stringify(params),
+    });
+    
+    return {
+      success: data?.success || false,
+      extractedData: data?.extractedData || [],
+      rawData: data?.rawData,
+      summary: data?.summary,
+      isResumeProbability: data?.isResumeProbability,
+      metrics: data?.metrics,
+      error: error || data?.error
+    };
   },
 
-  // Combined CV Analysis: Affinda + OpenAI for best results
+  // =====================
+  // COMBINED CV ANALYSIS (Affinda + OpenAI)
+  // =====================
   async analyzeCVCombined(params: {
     fileBase64?: string;
     fileName?: string;
@@ -317,6 +437,7 @@ export const api = {
     workingLanguage?: string;
     useAffinda?: boolean;
     useOpenAI?: boolean;
+    analysisDepth?: 'quick' | 'full' | 'deep';
   }): Promise<{
     success: boolean;
     extractedData: Array<{
@@ -327,18 +448,23 @@ export const api = {
       isNew: boolean;
       suggestedType?: string;
       source?: string;
+      category?: string;
     }>;
     images: Array<{
       description: string;
       type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
       suggestedTag?: string;
-      base64?: string;
     }>;
     summary?: string;
     suggestions?: string[];
-    error?: string;
+    error?: APIError;
     affindaUsed?: boolean;
     openaiUsed?: boolean;
+    metrics?: {
+      affinda?: APIMetrics;
+      openai?: APIMetrics;
+      total?: APIMetrics;
+    };
   }> {
     const results: Array<{
       tag: string;
@@ -348,20 +474,23 @@ export const api = {
       isNew: boolean;
       suggestedType?: string;
       source?: string;
+      category?: string;
     }> = [];
     const images: Array<{
       description: string;
       type: 'photo' | 'logo' | 'chart' | 'timeline' | 'icon' | 'other';
       suggestedTag?: string;
-      base64?: string;
     }> = [];
     let summary = '';
     const suggestions: string[] = [];
     let affindaUsed = false;
     let openaiUsed = false;
     const errors: string[] = [];
+    const metrics: { affinda?: APIMetrics; openai?: APIMetrics } = {};
 
-    // 1. Try Affinda first (more accurate for structured data)
+    const startTime = Date.now();
+
+    // 1. Affinda pour parsing structuré (si fichier disponible)
     if (params.useAffinda !== false && params.fileBase64) {
       try {
         const affindaResult = await this.parseCVWithAffinda({
@@ -372,24 +501,24 @@ export const api = {
 
         if (affindaResult.success && affindaResult.extractedData.length > 0) {
           affindaUsed = true;
+          metrics.affinda = affindaResult.metrics;
+          
           affindaResult.extractedData.forEach(item => {
-            results.push({
-              ...item,
-              source: 'affinda'
-            });
+            results.push({ ...item, source: 'affinda' });
           });
+          
           if (affindaResult.summary) {
             summary = affindaResult.summary;
           }
         } else if (affindaResult.error) {
-          errors.push(`Affinda: ${affindaResult.error}`);
+          errors.push(`Affinda: ${affindaResult.error.message}`);
         }
       } catch (e: any) {
-        errors.push(`Affinda error: ${e.message}`);
+        errors.push(`Affinda: ${e.message}`);
       }
     }
 
-    // 2. Also use OpenAI for additional insights and image analysis
+    // 2. OpenAI pour analyse enrichie et visuelle
     if (params.useOpenAI !== false && (params.textContent || params.imageBase64)) {
       try {
         const openaiResult = await this.analyzeCVWithAI({
@@ -397,26 +526,25 @@ export const api = {
           imageBase64: params.imageBase64,
           existingFields: params.existingFields,
           workingLanguage: params.workingLanguage,
-          extractImages: true
+          extractImages: true,
+          analysisDepth: params.analysisDepth
         });
 
         if (openaiResult.success) {
           openaiUsed = true;
+          metrics.openai = openaiResult.metrics;
           
-          // Add OpenAI results, avoiding duplicates from Affinda
+          // Fusionner avec les résultats Affinda
           openaiResult.extractedData.forEach(item => {
             const existingIndex = results.findIndex(
               r => r.tag.toLowerCase() === item.tag.toLowerCase()
             );
             
             if (existingIndex === -1) {
-              // New field from OpenAI
-              results.push({
-                ...item,
-                source: 'openai'
-              });
+              // Nouveau champ de OpenAI
+              results.push({ ...item, source: 'openai' });
             } else if (item.confidence > (results[existingIndex].confidence || 0)) {
-              // OpenAI has higher confidence, update value
+              // OpenAI a meilleure confiance, mise à jour
               results[existingIndex] = {
                 ...results[existingIndex],
                 value: item.value,
@@ -426,31 +554,32 @@ export const api = {
             }
           });
 
-          // Add images from OpenAI
+          // Ajouter les images
           if (openaiResult.images) {
             images.push(...openaiResult.images);
           }
 
-          // Combine summaries
+          // Enrichir le résumé
           if (openaiResult.summary) {
             summary = summary 
               ? `${summary}\n\n📊 Analyse IA: ${openaiResult.summary}`
               : openaiResult.summary;
           }
 
-          // Add suggestions
+          // Ajouter les suggestions
           if (openaiResult.suggestions) {
             suggestions.push(...openaiResult.suggestions);
           }
         } else if (openaiResult.error) {
-          errors.push(`OpenAI: ${openaiResult.error}`);
+          errors.push(`OpenAI: ${openaiResult.error.message}`);
         }
       } catch (e: any) {
-        errors.push(`OpenAI error: ${e.message}`);
+        errors.push(`OpenAI: ${e.message}`);
       }
     }
 
     const success = results.length > 0;
+    const totalDuration = Date.now() - startTime;
     
     return {
       success,
@@ -458,9 +587,44 @@ export const api = {
       images,
       summary: summary || (success ? `${results.length} champs extraits` : 'Aucune donnée extraite'),
       suggestions,
-      error: errors.length > 0 ? errors.join('; ') : undefined,
+      error: errors.length > 0 ? { 
+        code: 'PARTIAL_ERROR', 
+        message: errors.join('; '), 
+        retryable: true 
+      } : undefined,
       affindaUsed,
-      openaiUsed
+      openaiUsed,
+      metrics: {
+        ...metrics,
+        total: { duration: totalDuration }
+      }
     };
   },
+
+  // =====================
+  // UTILITY: Format error for display
+  // =====================
+  formatError(error: APIError | undefined): string {
+    if (!error) return 'Erreur inconnue';
+    
+    const providerText = error.provider ? ` (${error.provider})` : '';
+    const retryText = error.retryable ? ' - Réessayez' : '';
+    
+    return `${error.message}${providerText}${retryText}`;
+  },
+
+  // =====================
+  // UTILITY: Format metrics for display
+  // =====================
+  formatMetrics(metrics: APIMetrics | undefined): string {
+    if (!metrics) return '';
+    
+    const parts: string[] = [];
+    if (metrics.duration) parts.push(`${metrics.duration}ms`);
+    if (metrics.tokensUsed) parts.push(`${metrics.tokensUsed} tokens`);
+    if (metrics.charactersUsed) parts.push(`${metrics.charactersUsed} car.`);
+    if (metrics.model) parts.push(metrics.model);
+    
+    return parts.join(' | ');
+  }
 };
