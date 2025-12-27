@@ -486,13 +486,12 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     const versions = field.aiVersions || [];
     const v1 = versions.find(v => v.version === 1)?.value || '';
     const v2 = versions.find(v => v.version === 2)?.value || '';
-    const v3 = versions.find(v => v.version === 3)?.value || '';
     
     // Premier CV : version 1
     if (!v1 || v1.trim() === '') return 1;
     // Deuxième CV : version 2
     if (!v2 || v2.trim() === '') return 2;
-    // Troisième CV et suivants : version 3 (écrase)
+    // Troisième CV et suivants : version 3 (écrase si déjà remplie)
     return 3;
   };
 
@@ -537,8 +536,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
         // Mettre à jour la version existante (écrase si version 3 déjà remplie)
         field.aiVersions[existingVersionIndex] = {
           ...field.aiVersions[existingVersionIndex],
-          value,
-          updatedAt: now
+          value
         };
       } else {
         // Ajouter une nouvelle version
