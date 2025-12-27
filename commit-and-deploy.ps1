@@ -2,7 +2,9 @@
 # Affiche des signaux visuels dans Cursor au fil des étapes
 
 param(
-    [string]$CommitMessage = "Auto-commit: Build and deploy"
+    [string]$CommitMessage = "Auto-commit: Build and deploy",
+    [ValidateSet("major", "minor", "patch")]
+    [string]$VersionLevel = "patch"
 )
 
 $ErrorActionPreference = "Stop"
@@ -53,16 +55,35 @@ try {
     $currentVersion = $packageJson.version
     Write-Info "Version actuelle: $currentVersion"
     
-    # Incrémentation de la version (de X.Y.Z à X.Y+1.0)
+    # Incrémentation de la version selon le niveau spécifié
+    # Par défaut: patch (X.Y.Z+1) - correctif ou modification mineure
+    # Pour ajout de fonctionnalité: minor (X.Y+1.0)
+    # Pour modification majeure: major (X+1.0.0)
     $versionParts = $currentVersion -split '\.'
-    if ($versionParts.Length -ge 2) {
+    if ($versionParts.Length -ge 3) {
         $major = [int]$versionParts[0]
-        $minor = [int]$versionParts[1] + 1
-        $patch = 0
+        $minor = [int]$versionParts[1]
+        $patch = [int]$versionParts[2]
+        
+        switch ($VersionLevel) {
+            "major" {
+                $major++
+                $minor = 0
+                $patch = 0
+            }
+            "minor" {
+                $minor++
+                $patch = 0
+            }
+            default {
+                # "patch" - par défaut
+                $patch++
+            }
+        }
         $newVersion = "$major.$minor.$patch"
     } else {
-        # Si version invalide, passer à 8.4.0
-        $newVersion = "8.4.0"
+        # Si version invalide, passer à 2.73.1
+        $newVersion = "2.73.1"
     }
     
     Write-Info "Nouvelle version: $newVersion"
