@@ -12,21 +12,28 @@
   background: transparent;
 }
 
-.importer-header {
-  padding: 16px 20px;
+/* Header row avec Mode IA intégré */
+.importer-header-row {
+  display: flex;
+  align-items: stretch;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.importer-header {
+  flex: 1;
+  padding: 12px 16px;
   color: white;
 }
 
 .importer-header h3 {
-  margin: 0 0 8px 0;
-  font-size: 18px;
+  margin: 0 0 4px 0;
+  font-size: 16px;
   font-weight: 600;
 }
 
 .importer-description {
   margin: 0;
-  font-size: 13px;
+  font-size: 12px;
   opacity: 0.9;
 }
 
@@ -37,18 +44,60 @@
   font-family: monospace;
 }
 
-/* Mode selector */
+/* Badge Mode IA compact */
+.ai-mode-badge {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: linear-gradient(135deg, #4caf50 0%, #388e3c 100%);
+  border-left: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.ai-mode-badge .ai-icon {
+  font-size: 18px;
+}
+
+.ai-mode-badge .ai-label {
+  color: white;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.provider-select-compact {
+  padding: 4px 8px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.provider-select-compact:hover {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.provider-select-compact option {
+  background: #388e3c;
+  color: white;
+}
+
+/* Mode selector - Boutons d'import directs */
 .import-mode-selector {
   display: flex;
-  padding: 12px 16px;
+  padding: 10px 16px;
   gap: 8px;
   background: #f1f3f4;
   border-bottom: 1px solid #e9ecef;
+  align-items: center;
 }
 
 .mode-button {
   flex: 1;
-  padding: 10px 16px;
+  padding: 12px 16px;
   border: 2px solid #e9ecef;
   border-radius: 8px;
   background: white;
@@ -62,15 +111,62 @@
   gap: 6px;
 }
 
-.mode-button:hover {
+.mode-button:hover:not(:disabled) {
   border-color: #667eea;
   background: #f8f9ff;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.2);
 }
 
 .mode-button.active {
   border-color: #667eea;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
+}
+
+.mode-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Bouton import-trigger effet cliquable */
+.mode-button.import-trigger {
+  position: relative;
+}
+
+.mode-button.import-trigger::after {
+  content: '📁';
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 12px;
+  opacity: 0.5;
+}
+
+.mode-button.import-trigger:hover::after {
+  opacity: 1;
+}
+
+.mode-button.active.import-trigger::after {
+  opacity: 0.8;
+}
+
+/* Bouton reset inline */
+.reset-button-inline {
+  padding: 10px 14px;
+  background: #e9ecef;
+  color: #495057;
+  border: 1px solid #ced4da;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.reset-button-inline:hover {
+  background: #dee2e6;
 }
 
 /* AI info banner */

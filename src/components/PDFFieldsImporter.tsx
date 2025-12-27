@@ -761,77 +761,78 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     return '🔴';
   };
 
+  // Déclencher l'import via le file input
+  const triggerFileInput = (mode: ImportMode) => {
+    setImportMode(mode);
+    // Petit délai pour que le state soit mis à jour avant l'ouverture
+    setTimeout(() => {
+      fileInputRef.current?.click();
+    }, 50);
+  };
+
   return (
     <div className={`pdf-fields-importer ${embeddedMode ? 'embedded' : ''}`}>
-      <div className="importer-header">
-        <h3>📥 Import de CV</h3>
-        <p className="importer-description">
-          Importez des templates avec tags <code>{'{TAG}'}</code> ou des vrais CV analysés par IA.
-        </p>
+      {/* Header avec Mode IA intégré */}
+      <div className="importer-header-row">
+        <div className="importer-header">
+          <h3>📥 Import de CV</h3>
+          <p className="importer-description">
+            Importez des templates avec tags <code>{'{TAG}'}</code> ou des vrais CV analysés par IA.
+          </p>
+        </div>
+        
+        {importMode === 'cv-ai' && (
+          <div className="ai-mode-badge">
+            <span className="ai-icon">🧠</span>
+            <span className="ai-label">Mode IA activé</span>
+            <select 
+              value={aiProvider} 
+              onChange={(e) => setAiProvider(e.target.value as AIProvider)}
+              className="provider-select-compact"
+              title="Moteur d'analyse"
+            >
+              <option value="combined">🔥 Affinda + OpenAI</option>
+              <option value="affinda">📋 Affinda</option>
+              <option value="openai">🤖 OpenAI</option>
+            </select>
+          </div>
+        )}
       </div>
 
-      {/* Sélection du mode d'import */}
+      {/* Boutons d'import directs - cliquables pour déclencher l'import */}
       <div className="import-mode-selector">
+        <input
+          ref={fileInputRef}
+          type="file"
+          id="pdf-import-input"
+          accept={importMode === 'template' ? '.pdf,.txt,.tex' : '.pdf,.png,.jpg,.jpeg,.webp'}
+          multiple
+          onChange={(e) => handleFileUpload(e.target.files)}
+          className="file-input-hidden"
+        />
         <button 
-          className={`mode-button ${importMode === 'cv-ai' ? 'active' : ''}`}
-          onClick={() => setImportMode('cv-ai')}
+          className={`mode-button import-trigger ${importMode === 'cv-ai' ? 'active' : ''}`}
+          onClick={() => triggerFileInput('cv-ai')}
+          disabled={isProcessing}
         >
           🤖 CV réel (Analyse IA)
         </button>
         <button 
-          className={`mode-button ${importMode === 'template' ? 'active' : ''}`}
-          onClick={() => setImportMode('template')}
+          className={`mode-button import-trigger ${importMode === 'template' ? 'active' : ''}`}
+          onClick={() => triggerFileInput('template')}
+          disabled={isProcessing}
         >
           📋 Template (Tags)
         </button>
+        
+        {importedFiles.length > 0 && (
+          <button onClick={handleReset} className="reset-button-inline">
+            🔄
+          </button>
+        )}
       </div>
 
-      {importMode === 'cv-ai' && (
-        <div className="ai-info-banner">
-          <span className="ai-icon">🧠</span>
-          <div className="ai-info-text">
-            <strong>Mode IA activé</strong>
-            <p>L'IA analysera le CV et extraira automatiquement toutes les informations vers les champs existants ou créera de nouveaux champs.</p>
-          </div>
-          <div className="ai-provider-selector">
-            <label>Moteur d'analyse:</label>
-            <select 
-              value={aiProvider} 
-              onChange={(e) => setAiProvider(e.target.value as AIProvider)}
-              className="provider-select"
-            >
-              <option value="combined">🔥 Affinda + OpenAI (Recommandé)</option>
-              <option value="affinda">📋 Affinda seul (Parsing structuré)</option>
-              <option value="openai">🤖 OpenAI seul (Analyse visuelle)</option>
-            </select>
-          </div>
-        </div>
-      )}
-
       <div className="importer-content">
-        {/* Zone d'upload */}
-        <div className="upload-section">
-          <input
-            ref={fileInputRef}
-            type="file"
-            id="pdf-import-input"
-            accept={importMode === 'template' ? '.pdf,.txt,.tex' : '.pdf,.png,.jpg,.jpeg,.webp'}
-            multiple
-            onChange={(e) => handleFileUpload(e.target.files)}
-            className="file-input-hidden"
-          />
-          <label htmlFor="pdf-import-input" className="upload-button">
-            {importMode === 'cv-ai' 
-              ? '📁 Importer des CV (PDF, Images)' 
-              : '📁 Importer des templates (PDF, TXT)'}
-          </label>
-          
-          {importedFiles.length > 0 && (
-            <button onClick={handleReset} className="reset-button">
-              🔄 Réinitialiser
-            </button>
-          )}
-        </div>
 
         {/* Statut de traitement */}
         {isProcessing && (

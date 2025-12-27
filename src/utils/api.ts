@@ -34,7 +34,25 @@ async function apiCall<T>(
       },
     });
     
-    const data = await response.json();
+    // Lire le texte brut d'abord
+    const responseText = await response.text();
+    
+    // Essayer de parser en JSON
+    let data: any;
+    try {
+      data = JSON.parse(responseText);
+    } catch (parseError) {
+      // Si ce n'est pas du JSON, créer une erreur appropriée
+      console.error('API returned non-JSON response:', responseText.substring(0, 200));
+      return { 
+        error: { 
+          code: 'INVALID_RESPONSE', 
+          message: `Le serveur a retourné une réponse invalide (${response.status})`, 
+          details: responseText.substring(0, 100),
+          retryable: response.status >= 500 
+        } 
+      };
+    }
     
     if (!response.ok || data.error) {
       return { 
