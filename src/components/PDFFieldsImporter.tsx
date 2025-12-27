@@ -481,25 +481,40 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
   };
 
   // Fonction pour trouver la version disponible pour un champ
+  // Logique : Version 1 d'abord, puis 2, puis 3 (écrase la 3 si toutes remplies)
   const findAvailableVersion = (field: UserDataField): 1 | 2 | 3 => {
     const versions = field.aiVersions || [];
     const v1 = versions.find(v => v.version === 1)?.value || '';
     const v2 = versions.find(v => v.version === 2)?.value || '';
+    const v3 = versions.find(v => v.version === 3)?.value || '';
     
+    // Premier CV : version 1
     if (!v1 || v1.trim() === '') return 1;
+    // Deuxième CV : version 2
     if (!v2 || v2.trim() === '') return 2;
+    // Troisième CV et suivants : version 3 (écrase)
     return 3;
   };
 
   // Fonction pour créer ou mettre à jour un champ avec une valeur
+  // - Nouveau champ : crée avec version 1
+  // - Champ existant : remplit version 1, puis 2, puis écrase 3
+  // - allowEmpty: permet de créer des champs sans valeur (pour import structure seule)
   const createOrUpdateField = (
     existingFields: UserDataField[],
     tag: string,
     value: string,
     workingLanguage: string,
-    fieldType: string = 'text'
-  ): { fields: UserDataField[]; created: boolean; version: number } => {
+    fieldType: string = 'text',
+    allowEmpty: boolean = false
+  ): { fields: UserDataField[]; created: boolean; version: number; replaced: boolean } => {
     const now = new Date().toISOString();
+    const hasValue = value && value.trim();
+    
+    // Ne pas traiter si valeur vide et allowEmpty=false
+    if (!hasValue && !allowEmpty) {
+      return { fields: existingFields, created: false, version: 0, replaced: false };
+    }
     
     const existingFieldIndex = existingFields.findIndex(
       f => f.tag && f.tag.toLowerCase() === tag.toLowerCase()
@@ -515,14 +530,18 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       };
       
       const version = findAvailableVersion(field);
-      
       const existingVersionIndex = field.aiVersions.findIndex(v => v.version === version);
+      const isReplacing = existingVersionIndex >= 0 && version === 3;
+      
       if (existingVersionIndex >= 0) {
+        // Mettre à jour la version existante (écrase si version 3 déjà remplie)
         field.aiVersions[existingVersionIndex] = {
           ...field.aiVersions[existingVersionIndex],
-          value
+          value,
+          updatedAt: now
         };
       } else {
+        // Ajouter une nouvelle version
         field.aiVersions.push({
           version,
           value,
@@ -534,8 +553,9 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       const updatedFields = [...existingFields];
       updatedFields[existingFieldIndex] = field;
       
-      return { fields: updatedFields, created: false, version };
+      return { fields: updatedFields, created: false, version, replaced: isReplacing };
     } else {
+      // Créer un nouveau champ avec version 1 (ou vide si pas de valeur)
       const newField: UserDataField = {
         id: `field-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         name: formatTagAsName(tag),
@@ -543,7 +563,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
         type: fieldType as any,
         baseLanguage: workingLanguage,
         languageVersions: [],
-        aiVersions: value ? [{
+        aiVersions: hasValue ? [{
           version: 1,
           value,
           createdAt: now
@@ -552,7 +572,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
         updatedAt: now,
       };
       
-      return { fields: [...existingFields, newField], created: true, version: 1 };
+      return { fields: [...existingFields, newField], created: true, version: hasValue ? 1 : 0, replaced: false };
     }
   };
 
@@ -599,15 +619,36 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     
     console.log('Tags to import:', tagsToImport);
     
+    let createdCount = 0;
+    let updatedCount = 0;
+    let replacedCount = 0;
+    let skippedCount = 0;
+    
     for (const tagData of tagsToImport) {
       try {
+        // Ne pas importer si pas de valeur
+        if (!tagData.value || !tagData.value.trim()) {
+          skippedCount++;
+          continue;
+        }
+        
         const result = createOrUpdateField(currentFields, tagData.tag, tagData.value, workingLanguage);
         currentFields = result.fields;
         
+        if (result.version === 0) {
+          skippedCount++;
+          continue;
+        }
+        
         if (result.created) {
-          logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
+          createdCount++;
+          logs.push(`➕ Nouveau champ: ${tagData.tag} (v1)`);
+        } else if (result.replaced) {
+          replacedCount++;
+          logs.push(`🔄 Champ remplacé: ${tagData.tag} (v3 écrasée)`);
         } else {
-          logs.push(`📝 Champ mis à jour: ${tagData.tag} (version ${result.version})`);
+          updatedCount++;
+          logs.push(`📝 Champ enrichi: ${tagData.tag} (v${result.version})`);
         }
       } catch (fieldError) {
         console.error('Error creating field:', tagData.tag, fieldError);
@@ -617,18 +658,26 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     
     try {
       const updatedUser = { ...user, data: currentFields };
-      console.log('Saving user with', currentFields.length, 'fields');
+      console.log('Saving user with', currentFields.length, 'fields to database');
       const savedUser = await storage.saveUser(updatedUser);
       setUser(savedUser);
       
-      logs.push(`✅ ${tagsToImport.length} champs importés avec succès!`);
+      // Résumé détaillé
+      const summary: string[] = [];
+      if (createdCount > 0) summary.push(`${createdCount} nouveaux`);
+      if (updatedCount > 0) summary.push(`${updatedCount} enrichis`);
+      if (replacedCount > 0) summary.push(`${replacedCount} remplacés`);
+      if (skippedCount > 0) summary.push(`${skippedCount} ignorés (vides)`);
+      
+      logs.push(`✅ Import terminé: ${summary.join(', ')}`);
+      logs.push(`💾 ${currentFields.length} champs sauvegardés en base de données`);
       
       if (onFieldsUpdated) {
         onFieldsUpdated(currentFields);
       }
     } catch (error) {
       console.error('Error saving fields:', error);
-      logs.push(`❌ Erreur lors de la sauvegarde: ${error}`);
+      logs.push(`❌ Erreur lors de la sauvegarde en base de données: ${error}`);
     }
     
     setImportLog(prev => [...prev, ...logs]);
@@ -668,16 +717,22 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     
     console.log('Tags to import (fields only):', tagsToImport);
     
+    let createdCount = 0;
+    let skippedCount = 0;
+    
     for (const tagData of tagsToImport) {
       try {
         const exists = currentFields.some(f => f.tag && f.tag.toLowerCase() === tagData.tag.toLowerCase());
         
         if (!exists) {
-          const result = createOrUpdateField(currentFields, tagData.tag, '', workingLanguage);
+          // allowEmpty=true pour créer des champs vides (structure uniquement)
+          const result = createOrUpdateField(currentFields, tagData.tag, '', workingLanguage, 'text', true);
           currentFields = result.fields;
-          logs.push(`➕ Nouveau champ créé: ${tagData.tag}`);
+          createdCount++;
+          logs.push(`➕ Nouveau champ: ${tagData.tag}`);
         } else {
-          logs.push(`⏭️ Champ existant ignoré: ${tagData.tag}`);
+          skippedCount++;
+          logs.push(`⏭️ Champ existant: ${tagData.tag}`);
         }
       } catch (fieldError) {
         console.error('Error creating field:', tagData.tag, fieldError);
@@ -687,18 +742,19 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     
     try {
       const updatedUser = { ...user, data: currentFields };
-      console.log('Saving user with', currentFields.length, 'fields');
+      console.log('Saving user with', currentFields.length, 'fields to database');
       const savedUser = await storage.saveUser(updatedUser);
       setUser(savedUser);
       
-      logs.push(`✅ Champs créés avec succès!`);
+      logs.push(`✅ ${createdCount} champs créés, ${skippedCount} existants ignorés`);
+      logs.push(`💾 ${currentFields.length} champs sauvegardés en base de données`);
       
       if (onFieldsUpdated) {
         onFieldsUpdated(currentFields);
       }
     } catch (error) {
       console.error('Error saving fields:', error);
-      logs.push(`❌ Erreur lors de la sauvegarde: ${error}`);
+      logs.push(`❌ Erreur lors de la sauvegarde en base de données: ${error}`);
     }
     
     setImportLog(prev => [...prev, ...logs]);
