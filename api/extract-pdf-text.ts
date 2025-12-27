@@ -7,7 +7,7 @@ import {
   isRetryableError, 
   parseAPIError,
   logAPI 
-} from './lib/api-utils';
+} from './_utils';
 
 /**
  * API d'extraction de texte de PDF

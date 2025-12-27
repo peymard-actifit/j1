@@ -8,7 +8,7 @@ import {
   isRetryableError, 
   parseAPIError,
   logAPI 
-} from './lib/api-utils';
+} from './_utils';
 
 // Mapping des codes de langue vers leurs noms
 const LANGUAGE_NAMES: Record<string, string> = {

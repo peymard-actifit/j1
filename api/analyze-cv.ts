@@ -9,7 +9,7 @@ import {
   parseAPIError,
   safeJSONParse,
   logAPI
-} from './lib/api-utils';
+} from './_utils';
 
 interface FieldDefinition {
   id: string;
