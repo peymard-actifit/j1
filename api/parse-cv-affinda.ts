@@ -126,11 +126,29 @@ export default async function handler(
     const affindaApiKey = process.env.AFFINDA_API_KEY;
     if (!checkAPIKey(affindaApiKey, 'AFFINDA', res)) return;
 
+    // Affinda V3 nécessite un workspace - utiliser la variable d'environnement ou un workspace par défaut
+    const affindaWorkspace = process.env.AFFINDA_WORKSPACE_ID || '';
+    
+    if (!affindaWorkspace) {
+      logAPI('affinda', 'No workspace configured, returning error');
+      return res.status(200).json({
+        success: false,
+        error: {
+          code: 'MISSING_CONFIG',
+          message: 'AFFINDA_WORKSPACE_ID non configurée. Veuillez configurer un workspace Affinda ou utiliser OpenAI seul.',
+          retryable: false,
+          provider: 'affinda'
+        },
+        extractedData: []
+      });
+    }
+
     logAPI('affinda', 'Starting CV parsing', { 
       hasFile: !!fileBase64, 
       hasUrl: !!fileUrl,
       hasText: !!textContent,
-      fileName 
+      fileName,
+      workspace: affindaWorkspace
     });
 
     // Préparer la requête vers Affinda API v3
@@ -150,6 +168,8 @@ export default async function handler(
       formData.append('file', blob, 'cv.txt');
     }
 
+    // Paramètres requis pour Affinda V3
+    formData.append('workspace', affindaWorkspace);
     formData.append('wait', 'true');
 
     // Appel à l'API Affinda avec retry
