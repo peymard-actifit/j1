@@ -788,9 +788,13 @@ export const FieldEditor = ({
   };
 
   const [isInitialLoad, setIsInitialLoad] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   const prevVersion1Ref = useRef<string>('');
   const prevVersion2Ref = useRef<string>('');
   const prevVersion3Ref = useRef<string>('');
+  const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   // Stocker les traductions automatiques pour détecter les modifications manuelles
   const autoTranslationsRef = useRef<Record<string, Record<number, string>>>({});
 
@@ -1109,8 +1113,10 @@ export const FieldEditor = ({
     await onSave(updatedField);
   };
 
-  // Auto-sauvegarde automatique
-  const autoSave = () => {
+  // Auto-sauvegarde automatique avec indicateur
+  const autoSave = async () => {
+    setIsSaving(true);
+    
     // Mettre à jour les 3 versions dans aiVersions
     const updatedAiVersions = [...(field.aiVersions || [])];
     const now = new Date().toISOString();
@@ -1153,19 +1159,70 @@ export const FieldEditor = ({
       });
     }
     
-    onSave(updatedField);
+    try {
+      await onSave(updatedField);
+      setLastSaved(new Date());
+      setHasUnsavedChanges(false);
+    } catch (error) {
+      console.error('Erreur lors de la sauvegarde:', error);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  // Auto-sauvegarde lors des changements de name, tag ou versions
+  // Marquer comme modifié dès qu'un champ change
+  useEffect(() => {
+    if (!isInitialLoad) {
+      setHasUnsavedChanges(true);
+    }
+  }, [name, tag, version1Value, version2Value, version3Value]);
+
+  // Auto-sauvegarde lors des changements de name, tag ou versions (délai réduit à 500ms)
   useEffect(() => {
     if (isInitialLoad) return;
     
-    const timeoutId = setTimeout(() => {
+    // Annuler le timeout précédent
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    
+    saveTimeoutRef.current = setTimeout(() => {
       autoSave();
-    }, 1000); // Sauvegarder 1 seconde après la dernière modification
+    }, 500); // Sauvegarder 500ms après la dernière modification (réduit de 1s)
 
-    return () => clearTimeout(timeoutId);
+    return () => {
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+      }
+    };
   }, [name, tag, version1Value, version2Value, version3Value, isInitialLoad]);
+
+  // Sauvegarde immédiate avant de quitter la page
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        // Sauvegarder immédiatement
+        autoSave();
+        e.preventDefault();
+        e.returnValue = 'Vous avez des modifications non sauvegardées. Êtes-vous sûr de vouloir quitter ?';
+        return e.returnValue;
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [hasUnsavedChanges]);
+
+  // Sauvegarder immédiatement quand on change de champ sélectionné
+  useEffect(() => {
+    return () => {
+      // Cleanup: sauvegarder avant de changer de champ
+      if (hasUnsavedChanges && saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        autoSave();
+      }
+    };
+  }, [field.id]);
 
 
   return (
@@ -1186,6 +1243,16 @@ export const FieldEditor = ({
             value={tag}
             onChange={(e) => setTag(e.target.value)}
           />
+        </div>
+        {/* Indicateur de sauvegarde */}
+        <div className="save-indicator">
+          {isSaving ? (
+            <span className="saving">💾 Sauvegarde...</span>
+          ) : hasUnsavedChanges ? (
+            <span className="unsaved">⏳ Modifications en attente</span>
+          ) : lastSaved ? (
+            <span className="saved">✅ Sauvegardé</span>
+          ) : null}
         </div>
       </div>
 

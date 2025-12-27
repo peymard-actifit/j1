@@ -477,6 +477,50 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+/* Indicateur de sauvegarde */
+.save-indicator {
+  display: flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-radius: 8px;
+  white-space: nowrap;
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.save-indicator .saving {
+  color: #2563eb;
+  background: #dbeafe;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+.save-indicator .unsaved {
+  color: #d97706;
+  background: #fef3c7;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+}
+
+.save-indicator .saved {
+  color: #059669;
+  background: #d1fae5;
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+}
+
 .form-field-inline-compact input:hover {
   border-color: #d1d5db;
 }
