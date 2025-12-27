@@ -2,7 +2,6 @@ import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { 
   setCORSHeaders, 
   checkMethod, 
-  checkAPIKey, 
   withRetry, 
   isRetryableError, 
   parseAPIError,

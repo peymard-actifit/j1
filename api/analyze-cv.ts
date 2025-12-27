@@ -8,9 +8,7 @@ import {
   isRetryableError, 
   parseAPIError,
   safeJSONParse,
-  logAPI,
-  withMetrics,
-  type APIResult 
+  logAPI
 } from './lib/api-utils';
 
 interface FieldDefinition {
@@ -62,7 +60,6 @@ export default async function handler(
       imageBase64, 
       existingFields, 
       extractImages = true,
-      workingLanguage = 'fr',
       analysisDepth = 'full' // 'quick' | 'full' | 'deep'
     } = req.body;
 

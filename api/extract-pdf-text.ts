@@ -50,8 +50,7 @@ export default async function handler(
       fileContent,
       imageBase64, 
       existingText,
-      extractionMode = 'enhance',
-      language = 'fr'
+      extractionMode = 'enhance'
     } = req.body as ExtractRequest;
 
     // Cas 1: On a déjà du texte de pdf.js qui semble correct
