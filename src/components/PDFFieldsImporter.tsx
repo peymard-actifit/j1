@@ -17,6 +17,7 @@ interface ExtractedTag {
   count: number;
   confidence?: number;
   isNew?: boolean;
+  source?: string;
 }
 
 interface ExtractedImage {
@@ -35,10 +36,12 @@ interface ImportedFile {
 }
 
 type ImportMode = 'template' | 'cv-ai';
+type AIProvider = 'combined' | 'affinda' | 'openai';
 
 export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = false }: PDFFieldsImporterProps) => {
   const { user, setUser } = useAuth();
   const [importMode, setImportMode] = useState<ImportMode>('cv-ai');
+  const [aiProvider, setAiProvider] = useState<AIProvider>('combined');
   const [importedFiles, setImportedFiles] = useState<ImportedFile[]>([]);
   const [currentFileText, setCurrentFileText] = useState<string>('');
   const [currentFileImage, setCurrentFileImage] = useState<string>('');
@@ -202,18 +205,33 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
     return [];
   };
 
+  // Convertir un fichier en base64
+  const fileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   // Traitement d'un fichier en mode CV avec IA
   const processCVFileWithAI = async (file: File, newLogs: string[]): Promise<{ tags: ExtractedTag[], images: ExtractedImage[] }> => {
-    newLogs.push(`🤖 Analyse IA de ${file.name}...`);
-    setProcessingStatus(`🤖 Analyse IA de ${file.name}...`);
+    const providerName = aiProvider === 'combined' ? 'Affinda + OpenAI' : aiProvider === 'affinda' ? 'Affinda' : 'OpenAI';
+    newLogs.push(`🤖 Analyse ${providerName} de ${file.name}...`);
+    setProcessingStatus(`🤖 Analyse ${providerName} de ${file.name}...`);
     
     let textContent = '';
     let imageBase64 = '';
+    let fileBase64 = '';
     
     // Extraire le texte et l'image du PDF
     if (file.type === 'application/pdf') {
       newLogs.push(`📄 Extraction du texte et des images...`);
       setProcessingStatus(`📄 Extraction du texte et des images de ${file.name}...`);
+      
+      // Obtenir le fichier en base64 pour Affinda
+      fileBase64 = await fileToBase64(file);
       
       textContent = await extractPdfText(file);
       imageBase64 = await convertPdfToImage(file);
@@ -224,6 +242,7 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       }
     } else if (file.type.startsWith('image/')) {
       imageBase64 = await readImageAsBase64(file);
+      fileBase64 = imageBase64;
       setCurrentFileImage(imageBase64);
     } else {
       textContent = await readTextFile(file);
@@ -238,49 +257,121 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
       type: f.type
     }));
     
-    newLogs.push(`🧠 Envoi à l'IA pour analyse approfondie...`);
-    setProcessingStatus(`🧠 Analyse approfondie par IA de ${file.name}...`);
+    newLogs.push(`🧠 Envoi à ${providerName} pour analyse approfondie...`);
+    setProcessingStatus(`🧠 Analyse approfondie par ${providerName} de ${file.name}...`);
     
-    // Appeler l'API d'analyse IA
-    const result = await api.analyzeCVWithAI({
-      textContent,
-      imageBase64: imageBase64 || undefined,
-      existingFields,
-      workingLanguage: user?.baseLanguage || 'fr',
-      extractImages: true
-    });
-    
-    if (result.success) {
-      const tags: ExtractedTag[] = result.extractedData.map(d => ({
-        tag: d.tag,
-        value: d.value,
-        count: 1,
-        confidence: d.confidence,
-        isNew: d.isNew
-      }));
+    // Utiliser la méthode appropriée selon le provider sélectionné
+    if (aiProvider === 'combined') {
+      // Mode combiné: Affinda + OpenAI pour les meilleurs résultats
+      const result = await api.analyzeCVCombined({
+        fileBase64,
+        fileName: file.name,
+        textContent,
+        imageBase64: imageBase64 || undefined,
+        existingFields,
+        workingLanguage: user?.baseLanguage || 'fr',
+        useAffinda: true,
+        useOpenAI: true
+      });
       
-      newLogs.push(`✅ ${file.name}: ${tags.length} données extraites par l'IA`);
-      
-      if (result.summary) {
-        setAiSummary(result.summary);
-        newLogs.push(`📊 Résumé: ${result.summary.substring(0, 100)}...`);
+      if (result.success) {
+        const tags: ExtractedTag[] = result.extractedData.map(d => ({
+          tag: d.tag,
+          value: d.value,
+          count: 1,
+          confidence: d.confidence,
+          isNew: d.isNew,
+          source: d.source
+        }));
+        
+        const sources: string[] = [];
+        if (result.affindaUsed) sources.push('Affinda');
+        if (result.openaiUsed) sources.push('OpenAI');
+        
+        newLogs.push(`✅ ${file.name}: ${tags.length} données extraites via ${sources.join(' + ')}`);
+        
+        if (result.summary) {
+          setAiSummary(result.summary);
+          newLogs.push(`📊 Résumé: ${result.summary.substring(0, 100)}...`);
+        }
+        
+        if (result.suggestions && result.suggestions.length > 0) {
+          setAiSuggestions(result.suggestions);
+        }
+        
+        return { tags, images: result.images || [] };
+      } else {
+        newLogs.push(`⚠️ Erreur: ${result.error}`);
+        return { tags: [], images: [] };
       }
+    } else if (aiProvider === 'affinda') {
+      // Mode Affinda uniquement
+      const result = await api.parseCVWithAffinda({
+        fileBase64,
+        fileName: file.name,
+        textContent
+      });
       
-      if (result.suggestions && result.suggestions.length > 0) {
-        setAiSuggestions(result.suggestions);
+      if (result.success) {
+        const tags: ExtractedTag[] = result.extractedData.map(d => ({
+          tag: d.tag,
+          value: d.value,
+          count: 1,
+          confidence: d.confidence,
+          isNew: d.isNew
+        }));
+        
+        newLogs.push(`✅ ${file.name}: ${tags.length} données extraites par Affinda`);
+        
+        if (result.summary) {
+          setAiSummary(result.summary);
+          newLogs.push(`📊 Résumé: ${result.summary}`);
+        }
+        
+        return { tags, images: [] };
+      } else {
+        newLogs.push(`⚠️ Erreur Affinda: ${result.error}`);
+        return { tags: [], images: [] };
       }
-      
-      if (result.tokensUsed) {
-        newLogs.push(`💰 Tokens utilisés: ${result.tokensUsed}`);
-      }
-      
-      return { tags, images: result.images || [] };
     } else {
-      newLogs.push(`⚠️ Erreur IA: ${result.error}`);
-      newLogs.push(`📝 Tentative d'extraction manuelle...`);
+      // Mode OpenAI uniquement
+      const result = await api.analyzeCVWithAI({
+        textContent,
+        imageBase64: imageBase64 || undefined,
+        existingFields,
+        workingLanguage: user?.baseLanguage || 'fr',
+        extractImages: true
+      });
       
-      // Fallback: extraction basique si l'IA échoue
-      return { tags: [], images: [] };
+      if (result.success) {
+        const tags: ExtractedTag[] = result.extractedData.map(d => ({
+          tag: d.tag,
+          value: d.value,
+          count: 1,
+          confidence: d.confidence,
+          isNew: d.isNew
+        }));
+        
+        newLogs.push(`✅ ${file.name}: ${tags.length} données extraites par OpenAI`);
+        
+        if (result.summary) {
+          setAiSummary(result.summary);
+          newLogs.push(`📊 Résumé: ${result.summary.substring(0, 100)}...`);
+        }
+        
+        if (result.suggestions && result.suggestions.length > 0) {
+          setAiSuggestions(result.suggestions);
+        }
+        
+        if (result.tokensUsed) {
+          newLogs.push(`💰 Tokens utilisés: ${result.tokensUsed}`);
+        }
+        
+        return { tags, images: result.images || [] };
+      } else {
+        newLogs.push(`⚠️ Erreur OpenAI: ${result.error}`);
+        return { tags: [], images: [] };
+      }
     }
   };
 
@@ -673,7 +764,19 @@ export const PDFFieldsImporter = ({ onComplete, onFieldsUpdated, embeddedMode = 
           <span className="ai-icon">🧠</span>
           <div className="ai-info-text">
             <strong>Mode IA activé</strong>
-            <p>L'IA analysera le CV et extraira automatiquement toutes les informations (texte, images, graphiques) vers les champs existants ou créera de nouveaux champs.</p>
+            <p>L'IA analysera le CV et extraira automatiquement toutes les informations vers les champs existants ou créera de nouveaux champs.</p>
+          </div>
+          <div className="ai-provider-selector">
+            <label>Moteur d'analyse:</label>
+            <select 
+              value={aiProvider} 
+              onChange={(e) => setAiProvider(e.target.value as AIProvider)}
+              className="provider-select"
+            >
+              <option value="combined">🔥 Affinda + OpenAI (Recommandé)</option>
+              <option value="affinda">📋 Affinda seul (Parsing structuré)</option>
+              <option value="openai">🤖 OpenAI seul (Analyse visuelle)</option>
+            </select>
           </div>
         </div>
       )}
