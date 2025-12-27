@@ -211,10 +211,13 @@ export default async function handler(
     logAPI('affinda', 'Raw response received', { 
       hasData: !!affindaData.data,
       hasError: !!affindaData.error,
-      meta: affindaData.meta
+      meta: affindaData.meta,
+      dataKeys: affindaData.data ? Object.keys(affindaData.data) : [],
+      fullResponse: JSON.stringify(affindaData).substring(0, 500)
     });
 
-    if (affindaData.error) {
+    // Vérifier si la réponse contient des données même si error est présent
+    if (affindaData.error && affindaData.error.errorCode) {
       logAPI('affinda', 'Affinda returned error in response', { 
         errorCode: affindaData.error.errorCode,
         errorDetail: affindaData.error.errorDetail,
